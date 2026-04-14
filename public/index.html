@@ -1,1 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MSP Dashboard</title>
+  <style>
+    body { font-family: monospace; background: #111; color: #eee; padding: 2rem; }
+    h1 { color: #00ff99; }
+    #status { margin-bottom: 1rem; color: #aaa; }
+    #alert { font-size: 2rem; padding: 1rem; border-radius: 8px; display: none; }
+    .movement { background: #ff4444; color: white; }
+    .still { background: #222; color: #aaa; }
+    #log { margin-top: 2rem; max-height: 300px; overflow-y: auto; }
+    .entry { padding: 4px 0; border-bottom: 1px solid #222; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <h1>MSP Sensor Dashboard</h1>
+  <div id="status">Connecting...</div>
+  <div id="alert"></div>
+  <div id="log"></div>
 
+  <script>
+    const wsUrl = `wss://${location.host}`;
+    const ws = new WebSocket(wsUrl);
+    const status = document.getElementById("status");
+    const alert = document.getElementById("alert");
+    const log = document.getElementById("log");
+
+    ws.onopen = () => {
+      status.textContent = "Connected ✓";
+      status.style.color = "#00ff99";
+    };
+
+    ws.onclose = () => {
+      status.textContent = "Disconnected ✗";
+      status.style.color = "#ff4444";
+    };
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      const time = new Date().toLocaleTimeString();
+
+      if (data.movement) {
+        alert.textContent = `⚠️ MOVEMENT DETECTED — Delta: ${data.delta.toFixed(2)}`;
+        alert.className = "movement";
+        alert.style.display = "block";
+      } else {
+        alert.textContent = "No movement";
+        alert.className = "still";
+        alert.style.display = "block";
+      }
+
+      const entry = document.createElement("div");
+      entry.className = "entry";
+      entry.textContent = `${time} | movement: ${data.movement} | delta: ${data.delta?.toFixed(2)}`;
+      log.prepend(entry);
+    };
+  </script>
+</body>
+</html>
