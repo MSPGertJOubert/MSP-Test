@@ -1,0 +1,192 @@
+#include <WiFi.h>
+#include <WebSocketsClient.h>
+#include <WebSocketsServer.h>
+#include <ArduinoJson.h>
+
+// =========================
+// HOME WIFI
+// =========================
+const char* homeSSID     = "myWifi";
+const char* homePassword = "myPass";
+
+// =========================
+// CONTROLLER HOTSPOT
+// =========================
+const char* apSSID       = "MSP-Central";
+const char* apPassword   = "msp12345";
+
+// =========================
+// RAILWAY WEBSOCKET
+// =========================
+const char* wsHost = "msp-test-production-86e5.up.railway.app";
+const int   wsPort = 443;
+const char* wsPath = "/";
+
+// =========================
+// WEBSOCKET OBJECTS
+// =========================
+WebSocketsClient railwayWS;    // outbound to Railway
+WebSocketsServer localWS(81);  // inbound from C3 zone nodes
+
+// =========================
+// OPTIONAL LOCAL TEST BUTTON
+// Change pin if needed for your S2 Mini
+// =========================
+const int BUTTON_PIN = 0;
+bool lastButtonState = HIGH;
+
+// Optional LED pin if your board has one.
+// If it doesn't work, comment LED lines out.
+const int LED_PIN = 15;
+
+// =========================
+// RAILWAY EVENTS
+// =========================
+void onRailwayEvent(WStype_t type, uint8_t* payload, size_t length) {
+  switch (type) {
+    case WStype_CONNECTED:
+      Serial.println("Railway WS connected");
+      break;
+
+    case WStype_DISCONNECTED:
+      Serial.println("Railway WS disconnected");
+      break;
+
+    case WStype_TEXT:
+      Serial.print("Railway says: ");
+      Serial.println((char*)payload);
+      break;
+
+    default:
+      break;
+  }
+}
+
+// =========================
+// LOCAL NODE EVENTS
+// =========================
+void onLocalWSEvent(uint8_t clientNum, WStype_t type, uint8_t* payload, size_t length) {
+  switch (type) {
+    case WStype_CONNECTED:
+      Serial.printf("Zone node connected: client %u\n", clientNum);
+      break;
+
+    case WStype_DISCONNECTED:
+      Serial.printf("Zone node disconnected: client %u\n", clientNum);
+      break;
+
+    case WStype_TEXT: {
+      String msg = String((char*)payload);
+      Serial.print("From zone node: ");
+      Serial.println(msg);
+
+      // Forward exactly as received
+      railwayWS.sendTXT(msg);
+      Serial.println("Forwarded to Railway");
+      break;
+    }
+
+    default:
+      break;
+  }
+}
+
+// =========================
+// SEND CONTROLLER ALERT
+// =========================
+void sendControllerAlert() {
+  StaticJsonDocument<192> doc;
+  doc["movement"]   = true;
+  doc["delta"]      = 999;
+  doc["value"]      = 999;
+  doc["source"]     = "Controller";
+  doc["sensor"]     = "button";
+  doc["forwarded"]  = false;
+  doc["controller"] = "Controller";
+
+  String json;
+  serializeJson(doc, json);
+
+  railwayWS.sendTXT(json);
+
+  Serial.print("Sent controller alert: ");
+  Serial.println(json);
+}
+
+// =========================
+// SETUP
+// =========================
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+  // Comment out if LED pin not correct for your S2 Mini
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LOW);
+
+  Serial.println("ESP32-S2 Mini Controller starting...");
+
+  // AP + STA mode
+  WiFi.mode(WIFI_AP_STA);
+
+  // Start hotspot for C3 nodes
+  bool apOK = WiFi.softAP(apSSID, apPassword);
+  if (apOK) {
+    Serial.println("Controller hotspot started");
+    Serial.print("Hotspot IP: ");
+    Serial.println(WiFi.softAPIP());
+  } else {
+    Serial.println("Failed to start hotspot");
+  }
+
+  // Connect to home WiFi
+  Serial.print("Connecting to home WiFi");
+  WiFi.begin(homeSSID, homePassword);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println();
+  Serial.print("Home WiFi connected. IP: ");
+  Serial.println(WiFi.localIP());
+
+  // Connect to Railway
+  railwayWS.beginSSL(wsHost, wsPort, wsPath);
+  railwayWS.onEvent(onRailwayEvent);
+  railwayWS.setReconnectInterval(3000);
+
+  // Start local WebSocket server for zone nodes
+  localWS.begin();
+  localWS.onEvent(onLocalWSEvent);
+  Serial.println("Local WS server started on port 81");
+
+  Serial.println("Controller ready");
+}
+
+// =========================
+// LOOP
+// =========================
+void loop() {
+  railwayWS.loop();
+  localWS.loop();
+
+  // Optional local controller test button
+  bool currentButtonState = digitalRead(BUTTON_PIN);
+
+  if (lastButtonState == HIGH && currentButtonState == LOW) {
+    Serial.println("Controller button pressed");
+
+    digitalWrite(LED_PIN, HIGH);
+    sendControllerAlert();
+    delay(150);
+    digitalWrite(LED_PIN, LOW);
+  }
+
+  lastButtonState = currentButtonState;
+
+  delay(10);
+}
