@@ -13,20 +13,16 @@ const server = app.listen(PORT, () => {
 
 const wss = new WebSocketServer({ server });
 
-// Track active connections
 let clients = new Set();
 
 wss.on("connection", (ws) => {
-  console.log("New client connected");
   clients.add(ws);
 
   ws.on("message", (data) => {
     const messageString = data.toString();
-    console.log("Broadcasting:", messageString);
-
-    // Broadcast to every connected client (Dashboard and ESPs)
+    // Broadcast to all clients (including the dashboard)
     clients.forEach((client) => {
-      if (client.readyState === 1) { // 1 = OPEN
+      if (client.readyState === 1) {
         client.send(messageString);
       }
     });
@@ -34,16 +30,10 @@ wss.on("connection", (ws) => {
 
   ws.on("close", () => {
     clients.delete(ws);
-    console.log("Client disconnected");
-  });
-
-  ws.on("error", (err) => {
-    console.error("Socket Error:", err);
-    clients.delete(ws);
   });
 });
 
-// Keep-Alive Ping (prevents Railway from sleeping)
+// Ping every 30s to keep Railway connection alive
 setInterval(() => {
   clients.forEach((client) => {
     if (client.readyState === 1) {
