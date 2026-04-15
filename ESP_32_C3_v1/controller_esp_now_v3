@@ -18,50 +18,46 @@ WebSocketsClient webSocket;
 typedef struct {
   char nodeName[16];
   uint32_t counter;
-  int alert; // 0=Heartbeat, 1=Button, 2=Accel, 3=Hall
+  int alert; 
   float value;
 } NodePacket;
 
 // =========================
-// 2. RELAY TO WEBSITE
+// 2. RELAY TO WEBSITE (Mapped to Zone Alpha)
 // =========================
 void relayToWebsite(NodePacket pkt, String macAddr) {
   StaticJsonDocument<512> doc;
   
-  // MAP NODE NAME TO DASHBOARD SENSOR ID
-  // Your HTML looks for "S1", "S2", etc.
+  // FORCE MAPPING TO ZONE ALPHA (S1)
+  // Your website uses "S1" for the Alpha Sector card and map dot.
   if (String(pkt.nodeName) == "NODE-1") {
-    doc["sensorId"] = "S1";
+    doc["sensorId"] = "S1"; 
   } else {
     doc["sensorId"] = String(pkt.nodeName);
   }
 
-  // MAP ALERT TO MOVEMENT
-  // Your HTML checks: if (data.movement) { ... }
-  // We trigger 'movement' if alert is 1 (Button), 2 (Accel), or 3 (Hall)
+  // LOGIC FOR DASHBOARD
   doc["movement"] = (pkt.alert > 0); 
-  
-  // MAP VALUE TO DELTA
   doc["delta"] = pkt.value;
-
-  // EXTRA DATA
+  doc["type"] = "sensor_update"; 
+  
+  // METADATA
+  doc["source"] = "Zone Alpha"; // This helps if you add text logging
   doc["mac"] = macAddr;
-  doc["alertType"] = pkt.alert;
-  doc["counter"] = pkt.counter;
 
   String json;
   serializeJson(doc, json);
   
   if (webSocket.isConnected()) {
     webSocket.sendTXT(json);
-    Serial.println(">> RELAYED TO DASHBOARD: " + json);
+    Serial.println(">> SENT TO ZONE ALPHA: " + json);
   } else {
-    Serial.println("!! WS DISCONNECTED");
+    Serial.println("!! WS DISCONNECTED - Gateway cannot reach Railway");
   }
 }
 
 // =========================
-// 3. ESP-NOW & WS CALLBACKS
+// 3. CALLBACKS
 // =========================
 void onDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *data, int len) {
   if (len != sizeof(NodePacket)) return;
@@ -73,13 +69,12 @@ void onDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *data, int l
            recv_info->src_addr[0], recv_info->src_addr[1], recv_info->src_addr[2],
            recv_info->src_addr[3], recv_info->src_addr[4], recv_info->src_addr[5]);
 
-  Serial.printf("\n[RADIO] From %s | Alert %d\n", pkt.nodeName, pkt.alert);
+  Serial.printf("\n[RADIO] Recv from %s | Alert %d\n", pkt.nodeName, pkt.alert);
   relayToWebsite(pkt, String(macStr));
 }
 
 void onWSevent(WStype_t type, uint8_t * payload, size_t length) {
-  if(type == WStype_CONNECTED) Serial.println("WS: Connected to Railway!");
-  if(type == WStype_DISCONNECTED) Serial.println("WS: Offline");
+  if(type == WStype_CONNECTED) Serial.println("WS: Dashboard Link Active!");
 }
 
 // =========================
@@ -92,6 +87,8 @@ void setup() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print("."); }
+  
+  // Ensure we are on the correct channel for your router
   Serial.println("\nWiFi Connected! Channel: " + String(WiFi.channel()));
 
   if (esp_now_init() != ESP_OK) return;
@@ -104,5 +101,9 @@ void setup() {
 
 void loop() {
   webSocket.loop();
-  if (WiFi.status() != WL_CONNECTED) ESP.restart();
+  // Auto-recovery if WiFi drops
+  if (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    ESP.restart();
+  }
 }
