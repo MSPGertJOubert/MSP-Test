@@ -1,0 +1,62 @@
+#include <WiFi.h>
+#include <esp_now.h>
+
+typedef struct {
+  char nodeName[16];
+  uint32_t counter;
+  int alert;
+  float value;
+} NodePacket;
+
+void onDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *data, int len) {
+  if (len != sizeof(NodePacket)) {
+    Serial.print("Bad packet size: ");
+    Serial.println(len);
+    return;
+  }
+
+  NodePacket pkt;
+  memcpy(&pkt, data, sizeof(pkt));
+
+  const uint8_t *mac = recv_info->src_addr;
+
+  Serial.println("----- RX -----");
+  Serial.printf("From MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
+                mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  Serial.print("Node: ");
+  Serial.println(pkt.nodeName);
+  Serial.print("Counter: ");
+  Serial.println(pkt.counter);
+  Serial.print("Alert: ");
+  Serial.println(pkt.alert);
+  Serial.print("Value: ");
+  Serial.println(pkt.value, 2);
+  Serial.println("--------------");
+}
+
+void setup() {
+  Serial.begin(115200);
+  delay(2000);
+
+  Serial.println();
+  Serial.println("Controller booting...");
+
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+
+  Serial.print("Controller MAC: ");
+  Serial.println(WiFi.macAddress());
+
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("ESP-NOW init failed");
+    return;
+  }
+
+  esp_now_register_recv_cb(onDataRecv);
+
+  Serial.println("Controller ready");
+}
+
+void loop() {
+  delay(100);
+}
