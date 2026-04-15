@@ -1,0 +1,61 @@
+To maintain continuity in a new chat, here is a technical summary of the SecureSolutions Corridor Security System (Sishen → Saldanha) as of April 15, 2026.
+🛰️ System Architecture
+
+The project is a multi-node security network utilizing ESP32-C3 SuperMini boards. It monitors a physical corridor via a Gateway-Node relationship.
+
+    Nodes (Senders): Use ESP-NOW (currently locked to Channel 1) to transmit to a central Gateway.
+
+    Gateway (Server): Connected to WiFi (vA_3) and acts as a bridge, relaying radio packets to a Railway-hosted backend via WebSockets.
+
+    Backend: A Node.js server (server.js) broadcasting JSON to a web dashboard (index.html).
+
+🛠️ Technical Specifications
+1. Sensor Configuration (Node Side)
+
+    Accelerometer (LIS2DW12/similar): Connected via I2C (SDA: 6, SCL: 5). Detects motion disturbances.
+
+    Hall Effect Sensor (Analog): Connected to GPIO 4.
+
+        Logic: Inverted. Calibrates with a magnet present at boot; triggers an alert when the magnet is removed.
+
+    Alert Timing: Cooldown reduced to 1000ms for high-responsivity tracking.
+
+2. Network Layout & IDs
+
+The system is provisioned for 3 Nodes mapped to specific zones on the dashboard:
+
+    NODE-1: Mapped to S1 (Zone Alpha).
+
+    NODE-2: Mapped to S3 (Zone Central).
+
+    NODE-3: Mapped to S5 (Zone Echo).
+
+3. Data Structure
+
+The Gateway translates 16-byte ESP-NOW structs into JSON for the frontend:
+JSON
+
+{
+  "sensorId": "S1",
+  "source": "Zone Alpha",
+  "movement": true,
+  "delta": 425.0,
+  "connectedNodes": 2,
+  "type": "sensor_update"
+}
+
+💻 Current Software State
+
+    Gateway: Tracks heartbeats to provide a "X / 3 Connected" status. If a node isn't heard from for >35s, the count decreases.
+
+    Backend (server.js): Includes a 30s "Ping" interval to prevent Railway from putting the WebSocket to sleep.
+
+    Frontend (index.html): A custom UI with a CSS-grid corridor map, status panels, and a dynamic activity log.
+
+🚀 Pending/Next Steps
+
+    Deploy Node 2 and Node 3 hardware.
+
+    Ensure all nodes are set to the Gateway's current WiFi channel (Channel 1).
+
+    Potential migration from Railway to a permanent Hetzner VPS (Coolify).
