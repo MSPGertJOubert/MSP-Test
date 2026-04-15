@@ -44,7 +44,7 @@ void loop() {
     StaticJsonDocument<128> doc;
     doc["movement"] = true;
     doc["delta"]    = 99.99;
-    doc["source"]   = "S2-Mini";
+    doc["source"]   = "Zone B";
 
     String json;
     serializeJson(doc, json);
