@@ -1,0 +1,97 @@
+#include <WiFi.h>
+#include <WebSocketsClient.h>
+#include <WebSocketsServer.h>
+#include <ArduinoJson.h>
+
+// Home WiFi (to reach Railway)
+const char* homeSSID     = "YOUR_WIFI_SSID";
+const char* homePassword = "YOUR_WIFI_PASSWORD";
+
+// Hotspot credentials (S2 will connect to this)
+const char* apSSID     = "MSP-Central";
+const char* apPassword = "msp12345";
+
+// Railway
+const char* wsHost = "msp-test-production-86e5.up.railway.app";
+const int   wsPort = 443;
+const char* wsPath = "/";
+
+WebSocketsClient railwayWS;  // outbound to Railway
+WebSocketsServer localWS(81); // inbound from sensor ESPs
+
+const int BUTTON_PIN = 4;
+bool lastButtonState = HIGH;
+
+void onRailwayEvent(WStype_t type, uint8_t* payload, size_t length) {
+  if (type == WStype_CONNECTED) Serial.println("Railway WS connected!");
+  if (type == WStype_DISCONNECTED) Serial.println("Railway WS disconnected!");
+}
+
+void onLocalWSEvent(uint8_t clientNum, WStype_t type, uint8_t* payload, size_t length) {
+  if (type == WStype_TEXT) {
+    String msg = String((char*)payload);
+    Serial.print("From sensor ESP: ");
+    Serial.println(msg);
+    // Forward to Railway
+    railwayWS.sendTXT(msg);
+  }
+}
+
+void sendAlert(String source) {
+  StaticJsonDocument<128> doc;
+  doc["movement"] = true;
+  doc["delta"]    = 99.99;
+  doc["source"]   = source;
+
+  String json;
+  serializeJson(doc, json);
+  railwayWS.sendTXT(json);
+  Serial.print("Sent: ");
+  Serial.println(json);
+}
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+  // Start hotspot
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.softAP(apSSID, apPassword);
+  Serial.print("Hotspot IP: ");
+  Serial.println(WiFi.softAPIP());
+
+  // Connect to home WiFi
+  Serial.print("Connecting to home WiFi");
+  WiFi.begin(homeSSID, homePassword);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nHome WiFi connected: " + WiFi.localIP().toString());
+
+  // Connect to Railway
+  railwayWS.beginSSL(wsHost, wsPort, wsPath);
+  railwayWS.onEvent(onRailwayEvent);
+  railwayWS.setReconnectInterval(3000);
+
+  // Start local WebSocket server for sensor ESPs
+  localWS.begin();
+  localWS.onEvent(onLocalWSEvent);
+  Serial.println("Local WS server started on port 81");
+}
+
+void loop() {
+  railwayWS.loop();
+  localWS.loop();
+
+  // C3 onboard button
+  bool currentButtonState = digitalRead(BUTTON_PIN);
+  if (lastButtonState == HIGH && currentButtonState == LOW) {
+    Serial.println("C3 button pressed!");
+    sendAlert("C3");
+    delay(50);
+  }
+  lastButtonState = currentButtonState;
+
+  delay(10);
+}
