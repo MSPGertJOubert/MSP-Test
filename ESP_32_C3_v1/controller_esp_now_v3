@@ -1,1 +1,108 @@
+#include <WiFi.h>
+#include <WebSocketsClient.h>
+#include <ArduinoJson.h>
+#include <esp_now.h>
+#include <esp_wifi.h>
 
+// =========================
+// 1. CONFIGURATION
+// =========================
+const char* ssid     = "vA_3";
+const char* password = "kerkorrel28";
+const char* wsHost   = "msp-test-production-86e5.up.railway.app"; 
+const int   wsPort   = 443;
+const char* wsPath   = "/";
+
+WebSocketsClient webSocket;
+
+typedef struct {
+  char nodeName[16];
+  uint32_t counter;
+  int alert; // 0=Heartbeat, 1=Button, 2=Accel, 3=Hall
+  float value;
+} NodePacket;
+
+// =========================
+// 2. RELAY TO WEBSITE
+// =========================
+void relayToWebsite(NodePacket pkt, String macAddr) {
+  StaticJsonDocument<512> doc;
+  
+  // MAP NODE NAME TO DASHBOARD SENSOR ID
+  // Your HTML looks for "S1", "S2", etc.
+  if (String(pkt.nodeName) == "NODE-1") {
+    doc["sensorId"] = "S1";
+  } else {
+    doc["sensorId"] = String(pkt.nodeName);
+  }
+
+  // MAP ALERT TO MOVEMENT
+  // Your HTML checks: if (data.movement) { ... }
+  // We trigger 'movement' if alert is 1 (Button), 2 (Accel), or 3 (Hall)
+  doc["movement"] = (pkt.alert > 0); 
+  
+  // MAP VALUE TO DELTA
+  doc["delta"] = pkt.value;
+
+  // EXTRA DATA
+  doc["mac"] = macAddr;
+  doc["alertType"] = pkt.alert;
+  doc["counter"] = pkt.counter;
+
+  String json;
+  serializeJson(doc, json);
+  
+  if (webSocket.isConnected()) {
+    webSocket.sendTXT(json);
+    Serial.println(">> RELAYED TO DASHBOARD: " + json);
+  } else {
+    Serial.println("!! WS DISCONNECTED");
+  }
+}
+
+// =========================
+// 3. ESP-NOW & WS CALLBACKS
+// =========================
+void onDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *data, int len) {
+  if (len != sizeof(NodePacket)) return;
+  NodePacket pkt;
+  memcpy(&pkt, data, sizeof(pkt));
+
+  char macStr[18];
+  snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
+           recv_info->src_addr[0], recv_info->src_addr[1], recv_info->src_addr[2],
+           recv_info->src_addr[3], recv_info->src_addr[4], recv_info->src_addr[5]);
+
+  Serial.printf("\n[RADIO] From %s | Alert %d\n", pkt.nodeName, pkt.alert);
+  relayToWebsite(pkt, String(macStr));
+}
+
+void onWSevent(WStype_t type, uint8_t * payload, size_t length) {
+  if(type == WStype_CONNECTED) Serial.println("WS: Connected to Railway!");
+  if(type == WStype_DISCONNECTED) Serial.println("WS: Offline");
+}
+
+// =========================
+// 4. SETUP & LOOP
+// =========================
+void setup() {
+  Serial.begin(115200);
+  delay(2000);
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print("."); }
+  Serial.println("\nWiFi Connected! Channel: " + String(WiFi.channel()));
+
+  if (esp_now_init() != ESP_OK) return;
+  esp_now_register_recv_cb(onDataRecv);
+
+  webSocket.beginSSL(wsHost, wsPort, wsPath);
+  webSocket.onEvent(onWSevent);
+  webSocket.setReconnectInterval(5000);
+}
+
+void loop() {
+  webSocket.loop();
+  if (WiFi.status() != WL_CONNECTED) ESP.restart();
+}
