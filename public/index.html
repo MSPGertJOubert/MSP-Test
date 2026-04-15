@@ -5,81 +5,176 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MSP Dashboard</title>
   <style>
-    body { font-family: monospace; background: #111; color: #eee; padding: 2rem; }
-    h1 { color: #00ff99; }
-    #status { margin-bottom: 1rem; color: #aaa; }
-    .zone-box {
-      padding: 1rem 1.5rem;
-      border-radius: 8px;
-      margin-bottom: 1rem;
-      font-size: 1.4rem;
-      background: #222;
-      color: #555;
-      transition: all 0.3s;
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: monospace;
+      background: #111;
+      color: #eee;
+      padding: 2rem;
+      min-height: 100vh;
     }
-    .zone-box.triggered {
+    h1 { color: #00ff99; margin-bottom: 0.5rem; }
+    #status { color: #555; margin-bottom: 3rem; font-size: 0.85rem; }
+
+    .sensor-line {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin: 3rem 0;
+      position: relative;
+    }
+
+    .line {
+      flex: 1;
+      height: 2px;
+      background: #333;
+    }
+
+    .node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      position: relative;
+    }
+
+    .dot {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #2a2a2a;
+      border: 2px solid #444;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .dot.active {
       background: #ff4444;
-      color: white;
+      border-color: #ff4444;
+      box-shadow: 0 0 12px 4px rgba(255, 68, 68, 0.6);
     }
-    #log { margin-top: 2rem; max-height: 300px; overflow-y: auto; }
-    .entry { padding: 4px 0; border-bottom: 1px solid #222; font-size: 0.85rem; }
+
+    .dot.zone-a.active {
+      background: #00ff99;
+      border-color: #00ff99;
+      box-shadow: 0 0 12px 4px rgba(0, 255, 153, 0.6);
+    }
+
+    .dot.zone-b.active {
+      background: #00aaff;
+      border-color: #00aaff;
+      box-shadow: 0 0 12px 4px rgba(0, 170, 255, 0.6);
+    }
+
+    .label {
+      font-size: 0.75rem;
+      color: #555;
+      text-align: center;
+      transition: color 0.2s;
+    }
+
+    .label.active { color: #eee; }
+
+    .central-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #333;
+      border: 2px solid #555;
+    }
+
+    #log {
+      margin-top: 3rem;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+
+    #log h3 { color: #444; font-size: 0.8rem; margin-bottom: 0.5rem; }
+
+    .entry {
+      padding: 5px 0;
+      border-bottom: 1px solid #1a1a1a;
+      font-size: 0.8rem;
+      color: #555;
+    }
+
     .entry.zone-a { color: #00ff99; }
     .entry.zone-b { color: #00aaff; }
   </style>
 </head>
 <body>
-  <h1>MSP Sensor Dashboard</h1>
+  <h1>MSP Dashboard</h1>
   <div id="status">Connecting...</div>
 
-  <div class="zone-box" id="zone-a">🟢 Zone A — No Activity</div>
-  <div class="zone-box" id="zone-b">🔵 Zone B — No Activity</div>
+  <div class="sensor-line">
+    <!-- Zone A node -->
+    <div class="node">
+      <div class="dot zone-a" id="dot-a"></div>
+      <div class="label" id="label-a">Zone A</div>
+    </div>
 
-  <div id="log"></div>
+    <div class="line"></div>
+    <div class="central-dot"></div>
+    <div class="line"></div>
+    <div class="central-dot"></div>
+    <div class="line"></div>
+    <div class="central-dot"></div>
+    <div class="line"></div>
+    <div class="central-dot"></div>
+    <div class="line"></div>
+    <div class="central-dot"></div>
+    <div class="line"></div>
+
+    <!-- Zone B node -->
+    <div class="node">
+      <div class="dot zone-b" id="dot-b"></div>
+      <div class="label" id="label-b">Zone B</div>
+    </div>
+  </div>
+
+  <div id="log">
+    <h3>— EVENT LOG —</h3>
+  </div>
 
   <script>
     const ws = new WebSocket(`wss://${location.host}`);
     const status = document.getElementById("status");
-    const zoneA = document.getElementById("zone-a");
-    const zoneB = document.getElementById("zone-b");
     const log = document.getElementById("log");
 
     ws.onopen = () => {
-      status.textContent = "Connected ✓";
+      status.textContent = "● Connected";
       status.style.color = "#00ff99";
     };
 
     ws.onclose = () => {
-      status.textContent = "Disconnected ✗";
+      status.textContent = "● Disconnected";
       status.style.color = "#ff4444";
     };
+
+    function triggerZone(dotId, labelId, cssClass, name) {
+      const dot = document.getElementById(dotId);
+      const label = document.getElementById(labelId);
+      dot.classList.add("active");
+      label.classList.add("active");
+      setTimeout(() => {
+        dot.classList.remove("active");
+        label.classList.remove("active");
+      }, 3000);
+    }
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       const time = new Date().toLocaleTimeString();
       const source = data.source;
 
-      if (source === "Zone A") {
-        zoneA.textContent = `⚠️ Zone A — ALERT at ${time}`;
-        zoneA.classList.add("triggered");
-        setTimeout(() => {
-          zoneA.textContent = "🟢 Zone A — No Activity";
-          zoneA.classList.remove("triggered");
-        }, 3000);
-      }
-
-      if (source === "Zone B") {
-        zoneB.textContent = `⚠️ Zone B — ALERT at ${time}`;
-        zoneB.classList.add("triggered");
-        setTimeout(() => {
-          zoneB.textContent = "🔵 Zone B — No Activity";
-          zoneB.classList.remove("triggered");
-        }, 3000);
-      }
+      if (source === "Zone A") triggerZone("dot-a", "label-a", "zone-a", "Zone A");
+      if (source === "Zone B") triggerZone("dot-b", "label-b", "zone-b", "Zone B");
 
       const entry = document.createElement("div");
       entry.className = `entry ${source === "Zone A" ? "zone-a" : "zone-b"}`;
-      entry.textContent = `${time} | ${source} triggered`;
-      log.prepend(entry);
+      entry.textContent = `${time}  |  ${source} triggered`;
+      log.appendChild(entry);
+      log.scrollTop = log.scrollHeight;
     };
   </script>
 </body>
