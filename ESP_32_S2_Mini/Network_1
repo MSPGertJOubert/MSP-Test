@@ -1,0 +1,56 @@
+#include <WiFi.h>
+#include <WebSocketsClient.h>
+#include <ArduinoJson.h>
+
+const char* ssid     = "MSP-Central";
+const char* password = "msp12345";
+const char* wsHost   = "192.168.4.1"; // C3 hotspot IP
+const int   wsPort   = 81;
+const char* wsPath   = "/";
+
+WebSocketsClient ws;
+const int BUTTON_PIN = 0; // S2 Mini onboard button
+bool lastButtonState = HIGH;
+
+void onWSEvent(WStype_t type, uint8_t* payload, size_t length) {
+  if (type == WStype_CONNECTED) Serial.println("Connected to C3!");
+  if (type == WStype_DISCONNECTED) Serial.println("Disconnected from C3!");
+}
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+  Serial.print("Connecting to C3 hotspot");
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nConnected! IP: " + WiFi.localIP().toString());
+
+  ws.begin(wsHost, wsPort, wsPath);
+  ws.onEvent(onWSEvent);
+  ws.setReconnectInterval(3000);
+}
+
+void loop() {
+  ws.loop();
+
+  bool currentButtonState = digitalRead(BUTTON_PIN);
+  if (lastButtonState == HIGH && currentButtonState == LOW) {
+    Serial.println("S2 button pressed!");
+
+    StaticJsonDocument<128> doc;
+    doc["movement"] = true;
+    doc["delta"]    = 99.99;
+    doc["source"]   = "S2-Mini";
+
+    String json;
+    serializeJson(doc, json);
+    ws.sendTXT(json);
+    delay(50);
+  }
+  lastButtonState = currentButtonState;
+  delay(10);
+}
