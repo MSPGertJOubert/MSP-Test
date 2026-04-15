@@ -18,41 +18,65 @@ WebSocketsClient webSocket;
 typedef struct {
   char nodeName[16];
   uint32_t counter;
-  int alert; 
+  int alert;
   float value;
 } NodePacket;
 
+// --- Connection Tracking ---
+struct NodeStatus {
+  String name;
+  unsigned long lastSeen;
+  bool isOnline;
+};
+
+NodeStatus registry[3] = {
+  {"NODE-1", 0, false},
+  {"NODE-2", 0, false},
+  {"NODE-3", 0, false}
+};
+
 // =========================
-// 2. RELAY TO WEBSITE (Mapped to Zone Alpha)
+// 2. RELAY LOGIC (Mapping & Connection Counting)
 // =========================
 void relayToWebsite(NodePacket pkt, String macAddr) {
-  StaticJsonDocument<512> doc;
-  
-  // FORCE MAPPING TO ZONE ALPHA (S1)
-  // Your website uses "S1" for the Alpha Sector card and map dot.
-  if (String(pkt.nodeName) == "NODE-1") {
-    doc["sensorId"] = "S1"; 
-  } else {
-    doc["sensorId"] = String(pkt.nodeName);
+  int connectedCount = 0;
+  unsigned long now = millis();
+  String targetID = "Unknown";
+  String zoneName = "Unknown";
+
+  // 1. Update Registry & Map IDs
+  for (int i = 0; i < 3; i++) {
+    if (String(pkt.nodeName) == registry[i].name) {
+      registry[i].lastSeen = now;
+      registry[i].isOnline = true;
+    }
+    // 2. Count who is still "Live" (Seen in last 35 seconds)
+    if (now - registry[i].lastSeen < 35000 && registry[i].lastSeen > 0) {
+      connectedCount++;
+    }
   }
 
-  // LOGIC FOR DASHBOARD
+  // 3. Map to Website IDs
+  if (String(pkt.nodeName) == "NODE-1") { targetID = "S1"; zoneName = "Zone Alpha"; }
+  else if (String(pkt.nodeName) == "NODE-2") { targetID = "S3"; zoneName = "Zone Central"; }
+  else if (String(pkt.nodeName) == "NODE-3") { targetID = "S5"; zoneName = "Zone Echo"; }
+
+  // 4. Build JSON
+  StaticJsonDocument<512> doc;
+  doc["sensorId"] = targetID;
+  doc["source"] = zoneName;
   doc["movement"] = (pkt.alert > 0); 
   doc["delta"] = pkt.value;
   doc["type"] = "sensor_update"; 
-  
-  // METADATA
-  doc["source"] = "Zone Alpha"; // This helps if you add text logging
-  doc["mac"] = macAddr;
+  doc["connectedNodes"] = connectedCount; // Sent as e.g., 2
+  doc["totalProvisioned"] = 3;
 
   String json;
   serializeJson(doc, json);
   
   if (webSocket.isConnected()) {
     webSocket.sendTXT(json);
-    Serial.println(">> SENT TO ZONE ALPHA: " + json);
-  } else {
-    Serial.println("!! WS DISCONNECTED - Gateway cannot reach Railway");
+    Serial.println(">> RELAYED: " + json);
   }
 }
 
@@ -63,47 +87,27 @@ void onDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *data, int l
   if (len != sizeof(NodePacket)) return;
   NodePacket pkt;
   memcpy(&pkt, data, sizeof(pkt));
-
-  char macStr[18];
-  snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
-           recv_info->src_addr[0], recv_info->src_addr[1], recv_info->src_addr[2],
-           recv_info->src_addr[3], recv_info->src_addr[4], recv_info->src_addr[5]);
-
-  Serial.printf("\n[RADIO] Recv from %s | Alert %d\n", pkt.nodeName, pkt.alert);
-  relayToWebsite(pkt, String(macStr));
+  relayToWebsite(pkt, "RADIO_LINK");
 }
 
 void onWSevent(WStype_t type, uint8_t * payload, size_t length) {
-  if(type == WStype_CONNECTED) Serial.println("WS: Dashboard Link Active!");
+  if(type == WStype_CONNECTED) Serial.println("WS: Live");
 }
 
-// =========================
-// 4. SETUP & LOOP
-// =========================
 void setup() {
   Serial.begin(115200);
-  delay(2000);
-
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print("."); }
+  while (WiFi.status() != WL_CONNECTED) { delay(500); }
   
-  // Ensure we are on the correct channel for your router
-  Serial.println("\nWiFi Connected! Channel: " + String(WiFi.channel()));
-
-  if (esp_now_init() != ESP_OK) return;
+  esp_now_init();
   esp_now_register_recv_cb(onDataRecv);
 
   webSocket.beginSSL(wsHost, wsPort, wsPath);
   webSocket.onEvent(onWSevent);
-  webSocket.setReconnectInterval(5000);
 }
 
 void loop() {
   webSocket.loop();
-  // Auto-recovery if WiFi drops
-  if (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
-    ESP.restart();
-  }
+  if (WiFi.status() != WL_CONNECTED) ESP.restart();
 }
