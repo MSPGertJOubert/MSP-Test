@@ -1,0 +1,63 @@
+#include <WiFi.h>
+#include <WebSocketsClient.h>
+#include <ArduinoJson.h>
+
+const char* ssid     = "wifi ssd";
+const char* password = "password";
+const char* wsHost   = "msp-test-production-86e5.up.railway.app";
+const int   wsPort   = 443;
+const char* wsPath   = "/";
+
+WebSocketsClient ws;
+const int BUTTON_PIN = 4;
+bool lastButtonState = HIGH;
+
+void onWebSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
+  if (type == WStype_CONNECTED) {
+    Serial.println("WebSocket connected!");
+  } else if (type == WStype_DISCONNECTED) {
+    Serial.println("WebSocket disconnected, retrying...");
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+  Serial.print("Connecting to WiFi");
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nWiFi connected: " + WiFi.localIP().toString());
+
+  ws.beginSSL(wsHost, wsPort, wsPath);
+  ws.onEvent(onWebSocketEvent);
+  ws.setReconnectInterval(3000);
+}
+
+void loop() {
+  ws.loop();
+
+  bool currentButtonState = digitalRead(BUTTON_PIN);
+
+  // Detect press (HIGH -> LOW transition)
+  if (lastButtonState == HIGH && currentButtonState == LOW) {
+    Serial.println("Button pressed — sending alert!");
+
+    StaticJsonDocument<64> doc;
+    doc["movement"] = true;
+    doc["delta"]    = 99.99;
+    doc["source"]   = "button";
+
+    String json;
+    serializeJson(doc, json);
+    ws.sendTXT(json);
+
+    delay(50); // debounce
+  }
+
+  lastButtonState = currentButtonState;
+  delay(10);
+}
