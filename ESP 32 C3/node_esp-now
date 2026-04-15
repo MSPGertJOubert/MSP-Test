@@ -1,0 +1,108 @@
+#include <WiFi.h>
+#include <esp_now.h>
+
+// ===== CONFIG =====
+const char *NODE_NAME = "NODE-1";
+
+// Controller MAC (your V1)
+uint8_t controllerMac[] = {0x80, 0xF1, 0xB2, 0x50, 0x3A, 0xD4};
+
+// Try GPIO 9 first. If not working → change to 0
+const int BUTTON_PIN = 9;
+
+// ===== DATA STRUCT =====
+typedef struct {
+  char nodeName[16];
+  uint32_t counter;
+  int alert;
+  float value;
+} NodePacket;
+
+NodePacket pkt;
+esp_now_peer_info_t peerInfo;
+
+uint32_t sendCounter = 0;
+unsigned long lastSend = 0;
+bool lastButtonState = HIGH;
+
+// ===== CALLBACK =====
+void onDataSent(const wifi_tx_info_t *tx_info, esp_now_send_status_t status) {
+  Serial.print("[SEND STATUS] ");
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "SUCCESS" : "FAIL");
+}
+
+// ===== SEND FUNCTION =====
+void sendPacket(int alertFlag) {
+  memset(&pkt, 0, sizeof(pkt));
+
+  strncpy(pkt.nodeName, NODE_NAME, sizeof(pkt.nodeName) - 1);
+  pkt.counter = ++sendCounter;
+  pkt.alert = alertFlag;
+  pkt.value = 1.23;
+
+  esp_err_t result = esp_now_send(controllerMac, (uint8_t *)&pkt, sizeof(pkt));
+
+  Serial.print("[SEND] result: ");
+  Serial.println(result);
+}
+
+// ===== SETUP =====
+void setup() {
+  Serial.begin(115200);
+  delay(3000);
+
+  Serial.println();
+  Serial.println("=== NODE BOOT ===");
+
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+
+  Serial.print("Node MAC: ");
+  Serial.println(WiFi.macAddress());
+
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("ESP-NOW INIT FAILED");
+    return;
+  }
+
+  esp_now_register_send_cb(onDataSent);
+
+  memset(&peerInfo, 0, sizeof(peerInfo));
+  memcpy(peerInfo.peer_addr, controllerMac, 6);
+  peerInfo.channel = 0;
+  peerInfo.encrypt = false;
+
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("FAILED TO ADD PEER");
+    return;
+  }
+
+  Serial.println("ESP-NOW READY");
+}
+
+// ===== LOOP =====
+void loop() {
+
+  // ---- AUTO HEARTBEAT ----
+  if (millis() - lastSend >= 2000) {
+    lastSend = millis();
+
+    Serial.println("[AUTO] Sending heartbeat");
+    sendPacket(0);
+  }
+
+  // ---- BUTTON TRIGGER ----
+  bool currentButtonState = digitalRead(BUTTON_PIN);
+
+  if (lastButtonState == HIGH && currentButtonState == LOW) {
+    Serial.println("[BUTTON] ALERT TRIGGERED");
+    sendPacket(1);
+    delay(250);
+  }
+
+  lastButtonState = currentButtonState;
+
+  delay(10);
+}
