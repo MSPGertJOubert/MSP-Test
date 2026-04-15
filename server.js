@@ -13,20 +13,18 @@ const server = app.listen(PORT, () => {
 
 const wss = new WebSocketServer({ server });
 
-// Use a set to keep track of active connections
+// Track active connections
 let clients = new Set();
 
-wss.on("connection", (ws, req) => {
-  console.log(`New connection established`);
+wss.on("connection", (ws) => {
+  console.log("New client connected");
   clients.add(ws);
 
   ws.on("message", (data) => {
     const messageString = data.toString();
-    console.log("Broadcasting data:", messageString);
+    console.log("Broadcasting:", messageString);
 
-    // BROADCAST TO EVERYONE
-    // We remove the "client !== ws" check to ensure the dashboard 
-    // always receives the relay from the ESP32.
+    // Broadcast to every connected client (Dashboard and ESPs)
     clients.forEach((client) => {
       if (client.readyState === 1) { // 1 = OPEN
         client.send(messageString);
@@ -40,12 +38,12 @@ wss.on("connection", (ws, req) => {
   });
 
   ws.on("error", (err) => {
-    console.error("WS Error:", err);
+    console.error("Socket Error:", err);
     clients.delete(ws);
   });
 });
 
-// KEEP ALIVE: Sends a ping every 30 seconds to stop Railway from idling
+// Keep-Alive Ping (prevents Railway from sleeping)
 setInterval(() => {
   clients.forEach((client) => {
     if (client.readyState === 1) {
