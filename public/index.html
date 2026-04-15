@@ -8,24 +8,39 @@
     body { font-family: monospace; background: #111; color: #eee; padding: 2rem; }
     h1 { color: #00ff99; }
     #status { margin-bottom: 1rem; color: #aaa; }
-    #alert { font-size: 2rem; padding: 1rem; border-radius: 8px; display: none; }
-    .movement { background: #ff4444; color: white; }
-    .still { background: #222; color: #aaa; }
+    .zone-box {
+      padding: 1rem 1.5rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      font-size: 1.4rem;
+      background: #222;
+      color: #555;
+      transition: all 0.3s;
+    }
+    .zone-box.triggered {
+      background: #ff4444;
+      color: white;
+    }
     #log { margin-top: 2rem; max-height: 300px; overflow-y: auto; }
     .entry { padding: 4px 0; border-bottom: 1px solid #222; font-size: 0.85rem; }
+    .entry.zone-a { color: #00ff99; }
+    .entry.zone-b { color: #00aaff; }
   </style>
 </head>
 <body>
   <h1>MSP Sensor Dashboard</h1>
   <div id="status">Connecting...</div>
-  <div id="alert"></div>
+
+  <div class="zone-box" id="zone-a">🟢 Zone A — No Activity</div>
+  <div class="zone-box" id="zone-b">🔵 Zone B — No Activity</div>
+
   <div id="log"></div>
 
   <script>
-    const wsUrl = `wss://${location.host}`;
-    const ws = new WebSocket(wsUrl);
+    const ws = new WebSocket(`wss://${location.host}`);
     const status = document.getElementById("status");
-    const alert = document.getElementById("alert");
+    const zoneA = document.getElementById("zone-a");
+    const zoneB = document.getElementById("zone-b");
     const log = document.getElementById("log");
 
     ws.onopen = () => {
@@ -41,20 +56,29 @@
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       const time = new Date().toLocaleTimeString();
+      const source = data.source;
 
-      if (data.movement) {
-        alert.textContent = `⚠️ MOVEMENT DETECTED — Delta: ${data.delta.toFixed(2)}`;
-        alert.className = "movement";
-        alert.style.display = "block";
-      } else {
-        alert.textContent = "No movement";
-        alert.className = "still";
-        alert.style.display = "block";
+      if (source === "Zone A") {
+        zoneA.textContent = `⚠️ Zone A — ALERT at ${time}`;
+        zoneA.classList.add("triggered");
+        setTimeout(() => {
+          zoneA.textContent = "🟢 Zone A — No Activity";
+          zoneA.classList.remove("triggered");
+        }, 3000);
+      }
+
+      if (source === "Zone B") {
+        zoneB.textContent = `⚠️ Zone B — ALERT at ${time}`;
+        zoneB.classList.add("triggered");
+        setTimeout(() => {
+          zoneB.textContent = "🔵 Zone B — No Activity";
+          zoneB.classList.remove("triggered");
+        }, 3000);
       }
 
       const entry = document.createElement("div");
-      entry.className = "entry";
-      entry.textContent = `${time} | movement: ${data.movement} | delta: ${data.delta?.toFixed(2)}`;
+      entry.className = `entry ${source === "Zone A" ? "zone-a" : "zone-b"}`;
+      entry.textContent = `${time} | ${source} triggered`;
       log.prepend(entry);
     };
   </script>
