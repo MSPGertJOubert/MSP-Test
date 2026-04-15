@@ -1,0 +1,165 @@
+#include <WiFi.h>
+#include <WebSocketsClient.h>
+#include <ArduinoJson.h>
+
+// =========================
+// WiFi
+// =========================
+const char* homeSSID     = "vA_3";
+const char* homePassword = "kerkorrel28";
+
+// =========================
+// Railway WebSocket
+// =========================
+const char* wsHost = "msp-test-production-86e5.up.railway.app";
+const int   wsPort = 443;
+const char* wsPath = "/";
+
+WebSocketsClient railwayWS;
+
+// =========================
+// Pins
+// =========================
+const int HALL_PIN = 4;   // analog hall sensor output
+const int LED_PIN  = 8;   // onboard LED, change if needed
+
+// =========================
+// Detection settings
+// =========================
+int baseline = 0;
+const int THRESHOLD = 150;               // trigger threshold
+const unsigned long COOLDOWN = 2000;     // ms between alerts
+unsigned long lastTrigger = 0;
+
+// =========================
+// WebSocket events
+// =========================
+void onRailwayEvent(WStype_t type, uint8_t* payload, size_t length) {
+  switch (type) {
+    case WStype_DISCONNECTED:
+      Serial.println("Railway WS disconnected");
+      break;
+
+    case WStype_CONNECTED:
+      Serial.println("Railway WS connected");
+      break;
+
+    case WStype_TEXT:
+      Serial.print("Railway says: ");
+      Serial.println((char*)payload);
+      break;
+
+    default:
+      break;
+  }
+}
+
+// =========================
+// Helpers
+// =========================
+int readHallFiltered() {
+  long sum = 0;
+  for (int i = 0; i < 5; i++) {
+    sum += analogRead(HALL_PIN);
+    delay(2);
+  }
+  return sum / 5;
+}
+
+void flashLED(int times, int onMs, int offMs) {
+  for (int i = 0; i < times; i++) {
+    digitalWrite(LED_PIN, HIGH);
+    delay(onMs);
+    digitalWrite(LED_PIN, LOW);
+    delay(offMs);
+  }
+}
+
+void sendAlert(int value, int delta) {
+  StaticJsonDocument<192> doc;
+  doc["movement"] = true;
+  doc["delta"] = delta;
+  doc["value"] = value;
+  doc["source"] = "Zone A";
+  doc["sensor"] = "hall";
+
+  String json;
+  serializeJson(doc, json);
+
+  Serial.print("Sending alert: ");
+  Serial.println(json);
+
+  railwayWS.sendTXT(json);
+}
+
+// =========================
+// Setup
+// =========================
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LOW);
+
+  // Optional on ESP32; included for clarity
+  analogReadResolution(12);
+
+  // Establish baseline
+  long sum = 0;
+  for (int i = 0; i < 100; i++) {
+    sum += analogRead(HALL_PIN);
+    delay(5);
+  }
+  baseline = sum / 100;
+
+  Serial.println("Hall sensor system starting...");
+  Serial.print("Baseline: ");
+  Serial.println(baseline);
+
+  // Connect WiFi
+  Serial.print("Connecting to WiFi");
+  WiFi.begin(homeSSID, homePassword);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println();
+  Serial.print("WiFi connected. IP: ");
+  Serial.println(WiFi.localIP());
+
+  // Connect secure WebSocket
+  railwayWS.beginSSL(wsHost, wsPort, wsPath);
+  railwayWS.onEvent(onRailwayEvent);
+  railwayWS.setReconnectInterval(3000);
+
+  Serial.println("System ready");
+}
+
+// =========================
+// Loop
+// =========================
+void loop() {
+  railwayWS.loop();
+
+  int value = readHallFiltered();
+  int delta = abs(value - baseline);
+
+  Serial.print("Value: ");
+  Serial.print(value);
+  Serial.print(" | Delta: ");
+  Serial.println(delta);
+
+  if (delta > THRESHOLD && millis() - lastTrigger > COOLDOWN) {
+    Serial.println("MAGNETIC DISTURBANCE DETECTED");
+
+    flashLED(3, 120, 120);
+    sendAlert(value, delta);
+
+    lastTrigger = millis();
+  }
+
+  delay(100);
+}
