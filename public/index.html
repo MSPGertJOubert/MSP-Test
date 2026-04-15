@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kumba & Transnet Corridor Security Monitoring System</title>
+  <style>
+    :root {
+      --bg: #f4f7fa;
+      --bg-soft: #eef3f7;
+      --panel: #ffffff;
+      --panel-alt: #f9fbfc;
+      --border: #d7e0e8;
+      --border-strong: #bccad6;
+
+      --text: #1f2d3a;
+      --muted: #637381;
+      --heading: #17324d;
+
+      --primary: #1f4e79;
+      --primary-2: #2f6f8f;
+      --accent: #58a9b7;
+
+      --danger: #c0392b;
+      --danger-soft: #fbe9e7;
+      --warning: #b9851a;
+      --warning-soft: #fff6df;
+      --ok: #2e7d32;
+      --ok-soft: #eaf5ec;
+
+      --shadow-sm: 0 2px 8px rgba(20, 40, 60, 0.06);
+      --shadow-md: 0 8px 24px rgba(20, 40, 60, 0.08);
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Inter", "Segoe UI", Arial, sans-serif;
+      background:
+        linear-gradient(135deg, rgba(31, 78, 121, 0.04) 0%, rgba(31, 78, 121, 0) 35%),
+        linear-gradient(315deg, rgba(88, 169, 183, 0.04) 0%, rgba(88, 169, 183, 0) 40%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 1.25rem;
+    }
+
+    .dashboard {
+      max-width: 1440px;
+      margin: 0 auto;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: stretch;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.25rem;
+      padding: 1.15rem 1.25rem;
+      background: linear-gradient(135deg, #ffffff, #f8fbfd);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-md);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .topbar::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 6px;
+      background: linear-gradient(180deg, var(--primary), var(--accent));
+    }
+
+    .topbar::after {
+      content: "";
+      position: absolute;
+      right: -60px;
+      top: -60px;
+      width: 260px;
+      height: 260px;
+      background: linear-gradient(135deg, rgba(31, 78, 121, 0.08), rgba(88, 169, 183, 0.02));
+      transform: rotate(28deg);
+      pointer-events: none;
+    }
+
+    .brand-wrap {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+      z-index: 1;
+      flex: 1 1 620px;
+    }
+
+    .brand-mark {
+      width: 60px;
+      height: 60px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-2));
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      border: 1px solid rgba(255,255,255,0.35);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .brand-mark svg {
+      width: 34px;
+      height: 34px;
+      fill: #fff;
+      opacity: 0.96;
+    }
+
+    .brand-block h1 {
+      margin: 0 0 0.18rem;
+      font-size: 1.2rem;
+      line-height: 1.25;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--heading);
+      font-weight: 800;
+    }
+
+    .brand-block .subtitle {
+      margin: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .brand-context {
+      margin-top: 0.55rem;
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .brand-chip {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--primary);
+      padding: 0.34rem 0.58rem;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: #f8fbfd;
+      font-weight: 700;
+    }
+
+    .status-panel-group {
+      display: flex;
+      gap: 0.9rem;
+      z-index: 1;
+      flex-wrap: wrap;
+      align-items: stretch;
+    }
+
+    .status-panel {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.9rem 1rem;
+      background: #fbfdff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      min-width: 230px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #b0bec5;
+      flex-shrink: 0;
+    }
+
+    .status-dot.connected { background: var(--ok); }
+    .status-dot.disconnected { background: var(--danger); }
+
+    .status-text {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .status-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    #status, #nodeCount {
+      font-size: 0.96rem;
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1.45fr 1fr;
+      gap: 1.25rem;
+    }
+
+    .left-column, .right-column {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto auto 0;
+      width: 100%;
+      height: 4px;
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+    }
+
+    .card-header {
+      padding: 1rem 1.15rem 0.8rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      background: linear-gradient(180deg, #ffffff, #fbfdff);
+    }
+
+    .card-header h2 {
+      margin: 0;
+      font-size: 0.94rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--heading);
+      font-weight: 800;
+    }
+
+    .card-subtle {
+      font-size: 0.74rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+    }
+
+    .card-body {
+      padding: 1.15rem;
+    }
+
+    #alert {
+      display: none;
+      padding: 1.05rem 1.15rem;
+      border-radius: 12px;
+      font-size: 1rem;
+      line-height: 1.55;
+      border: 1px solid var(--border);
+      transition: all 0.2s ease;
+      box-shadow: var(--shadow-sm);
+    }
+
+    #alert.movement {
+      display: block;
+      background: var(--danger-soft);
+      border-color: #efc8c3;
+      color: var(--text);
+      border-left: 5px solid var(--danger);
+    }
+
+    #alert.still {
+      display: block;
+      background: #f6fafc;
+      border-color: var(--border);
+      color: var(--text);
+      border-left: 5px solid var(--primary-2);
+    }
+
+    .alert-title {
+      display: block;
+      font-size: 0.76rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.45rem;
+      font-weight: 800;
+    }
+
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.85rem;
+      margin-top: 1rem;
+    }
+
+    .kpi {
+      padding: 0.95rem;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--panel-alt);
+    }
+
+    .kpi-label {
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+      font-weight: 800;
+    }
+
+    .kpi-value {
+      font-size: 1.06rem;
+      color: var(--heading);
+      font-weight: 800;
+    }
+
+    .sensor-map {
+      position: relative;
+      min-height: 420px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background:
+        linear-gradient(180deg, #fdfefe, #f6f9fb);
+      overflow: hidden;
+    }
+
+    .sensor-map::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(23, 50, 77, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(23, 50, 77, 0.04) 1px, transparent 1px);
+      background-size: 42px 42px;
+      pointer-events: none;
+    }
+
+    .sensor-map::after {
+      content: "";
+      position: absolute;
+      left: -10%;
+      bottom: -18%;
+      width: 60%;
+      height: 50%;
+      background: linear-gradient(135deg, rgba(31, 78, 121, 0.05), rgba(88, 169, 183, 0.01));
+      transform: rotate(-8deg);
+      pointer-events: none;
+    }
+
+    .map-title-strip {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      z-index: 2;
+      padding: 0.48rem 0.75rem;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--primary);
+      font-weight: 800;
+    }
+
+    .corridor-line {
+      position: absolute;
+      top: 50%;
+      left: 7%;
+      width: 86%;
+      height: 4px;
+      transform: translateY(-50%);
+      background: linear-gradient(90deg, #9fb7c8, var(--primary));
+      border-radius: 999px;
+    }
+
+    .corridor-line::before,
+    .corridor-line::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      transform: translateY(-50%);
+      background: var(--primary);
+    }
+
+    .corridor-line::before { left: -4px; }
+    .corridor-line::after { right: -4px; }
+
+    .corridor-label {
+      position: absolute;
+      top: calc(50% + 18px);
+      transform: translateX(-50%);
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+      font-weight: 700;
+    }
+
+    .corridor-label.start { left: 7%; transform: translateX(-10%); }
+    .corridor-label.end { left: 93%; transform: translateX(-90%); }
+
+    .sensor-node {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--ok);
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 0 2px rgba(31, 50, 77, 0.12);
+      transform: translate(-50%, -50%);
+      z-index: 2;
+      cursor: default;
+    }
+
+    .sensor-node.warning {
+      background: var(--warning);
+      box-shadow: 0 0 0 2px rgba(185, 133, 26, 0.18);
+    }
+
+    .sensor-node.alert {
+      background: var(--danger);
+      box-shadow: 0 0 0 2px rgba(192, 57, 43, 0.2);
+      animation: pulse 1.3s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%   { transform: translate(-50%, -50%) scale(1); }
+      50%  { transform: translate(-50%, -50%) scale(1.08); }
+      100% { transform: translate(-50%, -50%) scale(1); }
+    }
+
+    .sensor-tooltip {
+      position: absolute;
+      top: -58px;
+      left: 50%;
+      transform: translateX(-50%);
+      min-width: 125px;
+      padding: 0.48rem 0.6rem;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.96);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.72rem;
+      line-height: 1.35;
+      text-align: center;
+      white-space: nowrap;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .sensor-tooltip strong {
+      display: block;
+      color: var(--heading);
+      margin-bottom: 0.08rem;
+      font-size: 0.73rem;
+      letter-spacing: 0.04em;
+    }
+
+    .map-legend {
+      position: absolute;
+      right: 16px;
+      bottom: 16px;
+      z-index: 2;
+      padding: 0.75rem 0.85rem;
+      background: rgba(255,255,255,0.95);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      min-width: 190px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .legend-title {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 0.55rem;
+      font-weight: 800;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      font-size: 0.82rem;
+      color: var(--text);
+      margin-bottom: 0.4rem;
+    }
+
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .legend-dot.ok { background: var(--ok); }
+    .legend-dot.warning { background: var(--warning); }
+    .legend-dot.alert { background: var(--danger); }
+
+    .sensor-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.85rem;
+    }
+
+    .sensor-card {
+      padding: 0.9rem;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--panel-alt);
+    }
+
+    .sensor-card-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.75rem;
+      align-items: center;
+      margin-bottom: 0.45rem;
+    }
+
+    .sensor-name {
+      font-size: 0.82rem;
+      color: var(--heading);
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .sensor-badge {
+      font-size: 0.68rem;
+      padding: 0.24rem 0.48rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 800;
+    }
+
+    .sensor-badge.ok {
+      color: var(--ok);
+      background: var(--ok-soft);
+      border-color: #cbe3d0;
+    }
+
+    .sensor-badge.alert {
+      color: var(--danger);
+      background: var(--danger-soft);
+      border-color: #efc8c3;
+    }
+
+    .sensor-badge.warning {
+      color: var(--warning);
+      background: var(--warning-soft);
+      border-color: #ecdca8;
+    }
+
+    .sensor-meta {
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    #log {
+      max-height: 390px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+      padding-right: 0.1rem;
+    }
+
+    .entry {
+      padding: 0.85rem 0.9rem;
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--primary);
+      border-radius: 10px;
+      background: #fbfdff;
+      font-size: 0.88rem;
+      color: var(--text);
+    }
+
+    .entry.alert-entry {
+      border-left-color: var(--danger);
+      background: var(--danger-soft);
+    }
+
+    .entry-meta {
+      display: block;
+      color: var(--muted);
+      font-size: 0.74rem;
+      margin-bottom: 0.25rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 800;
+    }
+
+    .empty-log {
+      color: var(--muted);
+      font-size: 0.9rem;
+      padding: 0.35rem 0;
+    }
+
+    @media (max-width: 1100px) {
+      .main-grid { grid-template-columns: 1fr; }
+      .kpi-row { grid-template-columns: repeat(2, 1fr); }
+      .sensor-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 640px) {
+      body { padding: 0.85rem; }
+      .topbar { padding: 1rem; }
+      .brand-block h1 { font-size: 1.02rem; }
+      .kpi-row { grid-template-columns: 1fr; }
+      .status-panel { min-width: 100%; }
+      .sensor-tooltip { min-width: 100px; font-size: 0.68rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard">
+    <div class="topbar">
+      <div class="brand-wrap">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5.25 3.4 9.95 8 11 4.6-1.05 8-5.75 8-11V5l-8-3Zm0 3.1 5 1.88V11c0 3.86-2.32 7.4-5 8.7-2.68-1.3-5-4.84-5-8.7V6.98l5-1.88Zm-1.3 9.9 5.65-5.66-1.4-1.41-4.25 4.25-1.95-1.95-1.41 1.41L10.7 15Z"/></svg>
+        </div>
+        <div class="brand-block">
+          <h1>Kumba &amp; Transnet Corridor Security Monitoring System</h1>
+          <p class="subtitle">Integrated Security Oversight Platform • Sishen to Saldanha Corridor</p>
+          <div class="brand-context">
+            <span class="brand-chip">SecureSolutions</span>
+            <span class="brand-chip">PSIRA-aligned</span>
+            <span class="brand-chip">POPIA-conscious</span>
+            <span class="brand-chip">Joint Security Tender</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="status-panel-group">
+        <div class="status-panel">
+          <div id="statusDot" class="status-dot"></div>
+          <div class="status-text">
+            <div class="status-label">System Server</div>
+            <div id="status">Connecting...</div>
+          </div>
+        </div>
+        <div class="status-panel">
+          <div class="status-text">
+            <div class="status-label">Active Field Nodes</div>
+            <div id="nodeCount">0 / 3 Connected</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="main-grid">
+      <div class="left-column">
+        <div class="card">
+          <div class="card-header">
+            <h2>Corridor Incident Status</h2>
+            <div class="card-subtle">Real-time monitoring intake</div>
+          </div>
+          <div class="card-body">
+            <div id="alert" class="still">
+              <span class="alert-title">System State</span>
+              Awaiting sensor data...
+            </div>
+
+            <div class="kpi-row">
+              <div class="kpi">
+                <div class="kpi-label">Security Incidents</div>
+                <div id="totalAlerts" class="kpi-value">0</div>
+              </div>
+              <div class="kpi">
+                <div class="kpi-label">Disturbance Magnitude</div>
+                <div id="lastDelta" class="kpi-value">--</div>
+              </div>
+              <div class="kpi">
+                <div class="kpi-label">Last System Update</div>
+                <div id="lastUpdate" class="kpi-value">--:--:--</div>
+              </div>
+              <div class="kpi">
+                <div class="kpi-label">Active Zone</div>
+                <div id="activeSensor" class="kpi-value">--</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>Corridor Monitoring View</h2>
+            <div class="card-subtle">Operational infrastructure map</div>
+          </div>
+          <div class="card-body">
+            <div class="sensor-map" id="sensorMap">
+              <div class="map-title-strip">Sishen → Saldanha Iron Ore Corridor</div>
+              <div class="corridor-line"></div>
+              <div class="corridor-label start">Sishen</div>
+              <div class="corridor-label end">Saldanha</div>
+
+              <div class="sensor-node" id="node-S1" style="left: 12%; top: 50%;">
+                <div class="sensor-tooltip"><strong>NODE S1</strong>Zone Alpha</div>
+              </div>
+              <div class="sensor-node" id="node-S2" style="left: 28%; top: 50%;">
+                <div class="sensor-tooltip"><strong>NODE S2</strong>Zone Bravo</div>
+              </div>
+              <div class="sensor-node" id="node-S3" style="left: 46%; top: 50%;">
+                <div class="sensor-tooltip"><strong>NODE S3</strong>Zone Central</div>
+              </div>
+              <div class="sensor-node" id="node-S4" style="left: 64%; top: 50%;">
+                <div class="sensor-tooltip"><strong>NODE S4</strong>Zone Delta</div>
+              </div>
+              <div class="sensor-node" id="node-S5" style="left: 82%; top: 50%;">
+                <div class="sensor-tooltip"><strong>NODE S5</strong>Zone Echo</div>
+              </div>
+
+              <div class="map-legend">
+                <div class="legend-title">Node Status</div>
+                <div class="legend-item"><span class="legend-dot ok"></span>Normal</div>
+                <div class="legend-item"><span class="legend-dot warning"></span>Elevated</div>
+                <div class="legend-item"><span class="legend-dot alert"></span>Active Alert</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="right-column">
+        <div class="card">
+          <div class="card-header">
+            <h2>Field Node Status</h2>
+            <div class="card-subtle">Tracked monitoring points</div>
+          </div>
+          <div class="card-body">
+            <div class="sensor-grid" id="sensorGrid">
+              <div class="sensor-card" id="card-S1">
+                <div class="sensor-card-head">
+                  <div class="sensor-name">Node S1</div>
+                  <div class="sensor-badge ok" id="badge-S1">Normal</div>
+                </div>
+                <div class="sensor-meta">Zone: Alpha<br />Last delta: <span id="delta-S1">0.00</span></div>
+              </div>
+
+              <div class="sensor-card" id="card-S2">
+                <div class="sensor-card-head">
+                  <div class="sensor-name">Node S2</div>
+                  <div class="sensor-badge ok" id="badge-S2">Normal</div>
+                </div>
+                <div class="sensor-meta">Zone: Bravo<br />Last delta: <span id="delta-S2">0.00</span></div>
+              </div>
+
+              <div class="sensor-card" id="card-S3">
+                <div class="sensor-card-head">
+                  <div class="sensor-name">Node S3</div>
+                  <div class="sensor-badge ok" id="badge-S3">Normal</div>
+                </div>
+                <div class="sensor-meta">Zone: Central<br />Last delta: <span id="delta-S3">0.00</span></div>
+              </div>
+
+              <div class="sensor-card" id="card-S4">
+                <div class="sensor-card-head">
+                  <div class="sensor-name">Node S4</div>
+                  <div class="sensor-badge ok" id="badge-S4">Normal</div>
+                </div>
+                <div class="sensor-meta">Zone: Delta<br />Last delta: <span id="delta-S4">0.00</span></div>
+              </div>
+
+              <div class="sensor-card" id="card-S5">
+                <div class="sensor-card-head">
+                  <div class="sensor-name">Node S5</div>
+                  <div class="sensor-badge ok" id="badge-S5">Normal</div>
+                </div>
+                <div class="sensor-meta">Zone: Echo<br />Last delta: <span id="delta-S5">0.00</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>Incident Log</h2>
+            <div class="card-subtle">Chronological audit trail</div>
+          </div>
+          <div class="card-body">
+            <div id="log">
+              <div class="empty-log">No alerts received yet.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const wsUrl = location.protocol === "https:" ? `wss://${location.host}` : `ws://${location.host}`;
+    const ws = new WebSocket(wsUrl);
+
+    const status = document.getElementById("status");
+    const statusDot = document.getElementById("statusDot");
+    const nodeCountEl = document.getElementById("nodeCount");
+    const alertBox = document.getElementById("alert");
+    const log = document.getElementById("log");
+    const totalAlertsEl = document.getElementById("totalAlerts");
+    const lastDeltaEl = document.getElementById("lastDelta");
+    const lastUpdateEl = document.getElementById("lastUpdate");
+    const activeSensorEl = document.getElementById("activeSensor");
+
+    let totalAlerts = 0;
+    let audioReady = false;
+    let audioCtx = null;
+    let sensorIndex = 0;
+
+    const sensorIds = ["S1", "S2", "S3", "S4", "S5"];
+    const sensorState = {
+      S1: { delta: 0, status: "ok" },
+      S2: { delta: 0, status: "ok" },
+      S3: { delta: 0, status: "ok" },
+      S4: { delta: 0, status: "ok" },
+      S5: { delta: 0, status: "ok" }
+    };
+
+    function initAudio() {
+      if (audioReady) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      audioReady = true;
+    }
+
+    function playAlarmCue() {
+      if (!audioReady || !audioCtx) return;
+      const now = audioCtx.currentTime;
+      const masterGain = audioCtx.createGain();
+      masterGain.gain.setValueAtTime(0.0001, now);
+      masterGain.connect(audioCtx.destination);
+
+      const osc1 = audioCtx.createOscillator();
+      osc1.type = "square";
+      osc1.frequency.setValueAtTime(880, now);
+
+      const osc2 = audioCtx.createOscillator();
+      osc2.type = "square";
+      osc2.frequency.setValueAtTime(660, now);
+
+      osc1.connect(masterGain);
+      osc2.connect(masterGain);
+
+      osc1.start(now);
+      osc2.start(now + 0.12);
+
+      masterGain.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
+      masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
+
+      osc1.stop(now + 0.7);
+      osc2.stop(now + 0.7);
+    }
+
+    function markConnected(isConnected) {
+      statusDot.classList.remove("connected", "disconnected");
+      statusDot.classList.add(isConnected ? "connected" : "disconnected");
+    }
+
+    function addLogEntry(message, isAlert = false) {
+      const empty = log.querySelector(".empty-log");
+      if (empty) empty.remove();
+
+      const entry = document.createElement("div");
+      entry.className = `entry${isAlert ? " alert-entry" : ""}`;
+      entry.innerHTML = `<span class="entry-meta">${new Date().toLocaleTimeString()}</span>${message}`;
+      log.prepend(entry);
+    }
+
+    function pickSensorId(data) {
+      if (typeof data.sensorId === "string" && sensorIds.includes(data.sensorId)) return data.sensorId;
+      return sensorIds[sensorIndex++ % sensorIds.length];
+    }
+
+    function clearAlertClasses() {
+      sensorIds.forEach((id) => {
+        const node = document.getElementById(`node-${id}`);
+        const badge = document.getElementById(`badge-${id}`);
+        const deltaEl = document.getElementById(`delta-${id}`);
+
+        node.classList.remove("alert", "warning");
+        badge.classList.remove("ok", "alert", "warning");
+
+        if (sensorState[id].status === "ok") {
+          badge.textContent = "Normal";
+          badge.classList.add("ok");
+        } else if (sensorState[id].status === "warning") {
+          node.classList.add("warning");
+          badge.textContent = "Elevated";
+          badge.classList.add("warning");
+        } else {
+          node.classList.add("alert");
+          badge.textContent = "Alert";
+          badge.classList.add("alert");
+        }
+
+        deltaEl.textContent = sensorState[id].delta.toFixed(2);
+      });
+    }
+
+    function setSensorState(sensorId, delta, movement) {
+      sensorIds.forEach((id) => {
+        if (id !== sensorId && sensorState[id].status === "alert") sensorState[id].status = "warning";
+      });
+
+      sensorState[sensorId].delta = Number(delta) || 0;
+      sensorState[sensorId].status = movement ? "alert" : "ok";
+      clearAlertClasses();
+    }
+
+    ws.onopen = () => {
+      status.textContent = "Connected";
+      markConnected(true);
+      addLogEntry("WebSocket session established.");
+    };
+
+    ws.onclose = () => {
+      status.textContent = "Disconnected";
+      markConnected(false);
+      addLogEntry("WebSocket session lost.", true);
+    };
+
+    ws.onmessage = (event) => {
+      let data;
+      try {
+        data = JSON.parse(event.data);
+      } catch (e) {
+        return;
+      }
+
+      if (data.type === "ping") return;
+
+      if (data.connectedNodes !== undefined) {
+        nodeCountEl.textContent = `${data.connectedNodes} / 3 Connected`;
+      }
+
+      const sensorId = pickSensorId(data);
+      const deltaText = Number(data.delta || data.value || 0).toFixed(2);
+
+      lastDeltaEl.textContent = deltaText;
+      lastUpdateEl.textContent = new Date().toLocaleTimeString();
+      activeSensorEl.textContent = data.source || sensorId;
+
+      setSensorState(sensorId, data.delta || data.value, data.movement);
+
+      if (data.movement) {
+        totalAlerts++;
+        totalAlertsEl.textContent = totalAlerts;
+        alertBox.className = "movement";
+        alertBox.style.display = "block";
+        alertBox.innerHTML = `<span class="alert-title">Active Security Alert</span>MOVEMENT DETECTED — field disturbance registered.<br /><strong>Zone:</strong> ${data.source || sensorId}<br /><strong>Delta:</strong> ${deltaText}`;
+        playAlarmCue();
+        addLogEntry(`ALERT: Movement | ${data.source || sensorId} | delta: ${deltaText}`, true);
+      } else {
+        alertBox.className = "still";
+        alertBox.style.display = "block";
+        alertBox.innerHTML = `<span class="alert-title">System State</span>No movement detected.<br /><strong>Zone:</strong> ${data.source || sensorId}<br /><strong>Delta:</strong> ${deltaText}`;
+        addLogEntry(`Status normal | ${data.source || sensorId} | delta: ${deltaText}`);
+      }
+    };
+
+    ["click", "touchstart", "keydown"].forEach(ev =>
+      window.addEventListener(ev, initAudio, { once: true })
+    );
+
+    markConnected(false);
+    clearAlertClasses();
+  </script>
+</body>
+</html>
