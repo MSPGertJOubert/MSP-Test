@@ -1,539 +1,523 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SecureNet — Live Monitoring</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MSP Security Dashboard</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --red: #ff3b3b;
-      --green: #00e676;
-      --blue: #2979ff;
-      --yellow: #ffd600;
-      --bg: #0a0c10;
-      --surface: #111520;
-      --surface2: #161b27;
-      --border: #1e2538;
-      --text: #e0e6f0;
-      --muted: #4a5270;
+      --bg: #0a1118;
+      --bg-panel: #101a24;
+      --bg-panel-2: #142230;
+      --border: #1f3445;
+      --text: #d9e4ee;
+      --muted: #8ea3b5;
+      --primary: #0f4c9a;
+      --primary-2: #1d63b8;
+      --teal: #2f9da8;
+      --teal-soft: #66c3c7;
+      --danger: #c93b3b;
+      --danger-2: #ff5a5a;
+      --ok: #1f8f68;
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    * {
+      box-sizing: border-box;
     }
 
     body {
-      font-family: 'Courier New', monospace;
-      background: var(--bg);
+      margin: 0;
+      font-family: "Segoe UI", "Inter", "Roboto Mono", monospace;
+      background:
+        linear-gradient(135deg, rgba(15, 76, 154, 0.18) 0%, rgba(15, 76, 154, 0) 35%),
+        linear-gradient(315deg, rgba(47, 157, 168, 0.12) 0%, rgba(47, 157, 168, 0) 40%),
+        var(--bg);
       color: var(--text);
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
+      padding: 1.5rem;
     }
 
-    /* ── TOP BAR ── */
+    .dashboard {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
     .topbar {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 0.75rem 2rem;
       display: flex;
-      align-items: center;
+      flex-wrap: wrap;
       justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      padding: 1rem 1.25rem;
+      background: linear-gradient(135deg, var(--bg-panel-2), var(--bg-panel));
+      border: 1px solid var(--border);
+      border-left: 5px solid var(--teal);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
     }
 
-    .brand {
+    .brand-block h1 {
+      margin: 0 0 0.35rem 0;
+      font-size: 1.6rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #f2f7fb;
+    }
+
+    .brand-block .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .status-panel {
       display: flex;
       align-items: center;
       gap: 0.75rem;
+      padding: 0.8rem 1rem;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      min-width: 260px;
     }
 
-    .brand-icon {
-      width: 36px;
-      height: 36px;
-      background: var(--red);
-      clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1rem;
-    }
-
-    .brand-name {
-      font-size: 1.1rem;
-      font-weight: bold;
-      letter-spacing: 3px;
-      color: var(--text);
-    }
-
-    .brand-sub {
-      font-size: 0.65rem;
-      color: var(--muted);
-      letter-spacing: 2px;
-    }
-
-    .topbar-right {
-      display: flex;
-      align-items: center;
-      gap: 2rem;
-      font-size: 0.75rem;
-      color: var(--muted);
-    }
-
-    .ws-status {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-    }
-
-    .ws-dot {
-      width: 8px;
-      height: 8px;
+    .status-dot {
+      width: 12px;
+      height: 12px;
       border-radius: 50%;
       background: var(--muted);
-    }
-
-    .ws-dot.online { background: var(--green); box-shadow: 0 0 6px var(--green); }
-    .ws-dot.offline { background: var(--red); }
-
-    #clock {
-      color: var(--text);
-      font-size: 0.85rem;
-      letter-spacing: 1px;
-    }
-
-    /* ── MAIN ── */
-    .main {
-      flex: 1;
-      padding: 1.5rem 2rem;
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
-    }
-
-    /* ── STAT CARDS ── */
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 1rem;
-    }
-
-    .stat-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 1rem 1.25rem;
-    }
-
-    .stat-label {
-      font-size: 0.65rem;
-      color: var(--muted);
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      margin-bottom: 0.4rem;
-    }
-
-    .stat-value {
-      font-size: 1.6rem;
-      font-weight: bold;
-      color: var(--text);
-    }
-
-    .stat-value.red { color: var(--red); }
-    .stat-value.green { color: var(--green); }
-    .stat-value.yellow { color: var(--yellow); }
-
-    .stat-sub {
-      font-size: 0.65rem;
-      color: var(--muted);
-      margin-top: 0.25rem;
-    }
-
-    /* ── SENSOR MAP ── */
-    .panel {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 1.25rem 1.5rem;
-    }
-
-    .panel-header {
-      font-size: 0.65rem;
-      letter-spacing: 2px;
-      color: var(--muted);
-      text-transform: uppercase;
-      margin-bottom: 1.5rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .panel-header span { color: var(--muted); }
-
-    .sensor-line {
-      display: flex;
-      align-items: center;
-      padding: 1rem 0;
-    }
-
-    .sensor-node {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-      min-width: 80px;
-    }
-
-    .sensor-dot {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      background: var(--surface2);
-      border: 2px solid var(--muted);
-      transition: all 0.25s ease;
-      position: relative;
-    }
-
-    .sensor-dot::after {
-      content: '';
-      position: absolute;
-      inset: -4px;
-      border-radius: 50%;
-      border: 1px solid transparent;
-      transition: all 0.25s ease;
-    }
-
-    .sensor-dot.alert-a {
-      background: var(--green);
-      border-color: var(--green);
-      box-shadow: 0 0 16px 4px rgba(0, 230, 118, 0.5);
-    }
-
-    .sensor-dot.alert-b {
-      background: var(--blue);
-      border-color: var(--blue);
-      box-shadow: 0 0 16px 4px rgba(41, 121, 255, 0.5);
-    }
-
-    .sensor-dot.alert-a::after { border-color: rgba(0,230,118,0.3); }
-    .sensor-dot.alert-b::after { border-color: rgba(41,121,255,0.3); }
-
-    .sensor-label {
-      font-size: 0.7rem;
-      color: var(--muted);
-      letter-spacing: 1px;
-      text-align: center;
-      transition: color 0.25s;
-    }
-
-    .sensor-label.active { color: var(--text); }
-
-    .sensor-status {
-      font-size: 0.6rem;
-      color: var(--muted);
-      letter-spacing: 1px;
-    }
-
-    .sensor-status.triggered { color: var(--red); }
-
-    .line-segment {
-      flex: 1;
-      height: 1px;
-      background: var(--border);
-      position: relative;
-    }
-
-    .mid-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--border);
+      box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.03);
       flex-shrink: 0;
-      margin: 0 -3px;
-      position: relative;
-      z-index: 1;
     }
 
-    /* ── ALERT BANNER ── */
-    .alert-banner {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-left: 3px solid var(--muted);
-      border-radius: 6px;
-      padding: 0.85rem 1.25rem;
-      font-size: 0.85rem;
+    .status-dot.connected {
+      background: var(--ok);
+      box-shadow: 0 0 12px rgba(31, 143, 104, 0.7);
+    }
+
+    .status-dot.disconnected {
+      background: var(--danger-2);
+      box-shadow: 0 0 12px rgba(255, 90, 90, 0.7);
+    }
+
+    .status-text {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .status-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
       color: var(--muted);
-      letter-spacing: 1px;
-      transition: all 0.3s;
     }
 
-    .alert-banner.active {
-      border-left-color: var(--red);
-      background: rgba(255, 59, 59, 0.08);
+    #status {
+      font-size: 0.95rem;
       color: var(--text);
     }
 
-    .alert-banner .alert-tag {
-      color: var(--red);
-      font-weight: bold;
-      margin-right: 0.5rem;
-    }
-
-    /* ── LOG ── */
-    .log-wrap {
-      max-height: 220px;
-      overflow-y: auto;
-    }
-
-    .log-entry {
+    .grid {
       display: grid;
-      grid-template-columns: 90px 80px 1fr 80px;
-      gap: 1rem;
-      padding: 0.5rem 0;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.75rem;
-      color: var(--muted);
-      align-items: center;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 1.25rem;
     }
 
-    .log-entry:first-child { color: var(--text); }
-
-    .log-entry .log-zone { font-weight: bold; }
-    .log-entry .log-zone.a { color: var(--green); }
-    .log-entry .log-zone.b { color: var(--blue); }
-
-    .log-badge {
-      padding: 2px 8px;
-      border-radius: 3px;
-      font-size: 0.65rem;
-      letter-spacing: 1px;
-      background: rgba(255,59,59,0.15);
-      color: var(--red);
-      border: 1px solid rgba(255,59,59,0.3);
-      text-align: center;
+    .card {
+      background: linear-gradient(180deg, rgba(20, 34, 48, 0.95), rgba(16, 26, 36, 0.98));
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      position: relative;
     }
 
-    .log-header {
-      display: grid;
-      grid-template-columns: 90px 80px 1fr 80px;
-      gap: 1rem;
-      padding: 0 0 0.5rem 0;
-      font-size: 0.6rem;
-      color: var(--muted);
-      letter-spacing: 2px;
+    .card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: linear-gradient(90deg, var(--primary), var(--teal));
+    }
+
+    .card-header {
+      padding: 1rem 1.2rem 0.7rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .card-header h2 {
+      margin: 0;
+      font-size: 0.95rem;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 0.25rem;
+      color: #f2f7fb;
     }
 
-    /* ── FOOTER ── */
-    .footer {
-      background: var(--surface);
-      border-top: 1px solid var(--border);
-      padding: 0.5rem 2rem;
-      font-size: 0.65rem;
+    .card-body {
+      padding: 1.2rem;
+    }
+
+    #alert {
+      display: none;
+      padding: 1.25rem;
+      border-radius: 12px;
+      font-size: 1.1rem;
+      line-height: 1.5;
+      border: 1px solid var(--border);
+      transition: all 0.2s ease;
+    }
+
+    #alert.movement {
+      display: block;
+      background:
+        linear-gradient(135deg, rgba(201, 59, 59, 0.18), rgba(255, 90, 90, 0.1)),
+        #241417;
+      border-color: rgba(255, 90, 90, 0.4);
+      color: #ffd8d8;
+      box-shadow: 0 0 24px rgba(201, 59, 59, 0.18);
+    }
+
+    #alert.still {
+      display: block;
+      background:
+        linear-gradient(135deg, rgba(47, 157, 168, 0.12), rgba(15, 76, 154, 0.08)),
+        #111b24;
+      border-color: rgba(102, 195, 199, 0.25);
+      color: var(--text);
+    }
+
+    .alert-title {
+      display: block;
+      font-size: 0.8rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
       color: var(--muted);
+      margin-bottom: 0.45rem;
+    }
+
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.9rem;
+      margin-top: 1rem;
+    }
+
+    .kpi {
+      padding: 0.95rem;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.025);
+    }
+
+    .kpi-label {
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+
+    .kpi-value {
+      font-size: 1.15rem;
+      color: #f2f7fb;
+      font-weight: 700;
+    }
+
+    #log {
+      max-height: 430px;
+      overflow-y: auto;
       display: flex;
-      justify-content: space-between;
-      letter-spacing: 1px;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+
+    .entry {
+      padding: 0.85rem 0.9rem;
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--primary);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.025);
+      font-size: 0.88rem;
+      color: var(--text);
+    }
+
+    .entry.alert-entry {
+      border-left-color: var(--danger-2);
+      background: rgba(201, 59, 59, 0.08);
+    }
+
+    .entry-meta {
+      display: block;
+      color: var(--muted);
+      font-size: 0.76rem;
+      margin-bottom: 0.25rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .empty-log {
+      color: var(--muted);
+      font-size: 0.9rem;
+      padding: 0.35rem 0;
+    }
+
+    @media (max-width: 900px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .kpi-row {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        align-items: flex-start;
+      }
+
+      .status-panel {
+        width: 100%;
+      }
     }
   </style>
 </head>
 <body>
+  <div class="dashboard">
+    <div class="topbar">
+      <div class="brand-block">
+        <h1>SecureSolutions Security Dashboard</h1>
+        <p class="subtitle">Corridor Monitoring • Sensor Alerts • Incident Response</p>
+      </div>
 
-  <!-- TOP BAR -->
-  <div class="topbar">
-    <div class="brand">
-      <div class="brand-icon">⬡</div>
-      <div>
-        <div class="brand-name">SECURENET</div>
-        <div class="brand-sub">LIVE MONITORING SYSTEM</div>
-      </div>
-    </div>
-    <div class="topbar-right">
-      <div class="ws-status">
-        <div class="ws-dot" id="ws-dot"></div>
-        <span id="ws-label">CONNECTING</span>
-      </div>
-      <div id="clock">--:--:--</div>
-    </div>
-  </div>
-
-  <!-- MAIN -->
-  <div class="main">
-
-    <!-- STAT CARDS -->
-    <div class="stats">
-      <div class="stat-card">
-        <div class="stat-label">System Status</div>
-        <div class="stat-value green" id="sys-status">ARMED</div>
-        <div class="stat-sub">All sensors online</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Active Alerts</div>
-        <div class="stat-value red" id="active-alerts">0</div>
-        <div class="stat-sub">Last 60 seconds</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Total Events</div>
-        <div class="stat-value" id="total-events">0</div>
-        <div class="stat-sub">This session</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Sensors Online</div>
-        <div class="stat-value green">2 / 2</div>
-        <div class="stat-sub">Zone A · Zone B</div>
-      </div>
-    </div>
-
-    <!-- ALERT BANNER -->
-    <div class="alert-banner" id="alert-banner">
-      <span>■ NO ACTIVE ALERTS — All zones clear</span>
-    </div>
-
-    <!-- SENSOR MAP -->
-    <div class="panel">
-      <div class="panel-header">
-        <span>SENSOR NETWORK MAP</span>
-        <span id="last-event">LAST EVENT: —</span>
-      </div>
-      <div class="sensor-line">
-
-        <div class="sensor-node">
-          <div class="sensor-dot" id="dot-a"></div>
-          <div class="sensor-label" id="label-a">ZONE A</div>
-          <div class="sensor-status" id="status-a">CLEAR</div>
+      <div class="status-panel">
+        <div id="statusDot" class="status-dot"></div>
+        <div class="status-text">
+          <div class="status-label">Connection Status</div>
+          <div id="status">Connecting...</div>
         </div>
+      </div>
+    </div>
 
-        <div class="line-segment"></div>
-        <div class="mid-dot"></div>
-        <div class="line-segment"></div>
-        <div class="mid-dot"></div>
-        <div class="line-segment"></div>
-        <div class="mid-dot"></div>
-        <div class="line-segment"></div>
-        <div class="mid-dot"></div>
-        <div class="line-segment"></div>
-        <div class="mid-dot"></div>
-        <div class="line-segment"></div>
-
-        <div class="sensor-node">
-          <div class="sensor-dot" id="dot-b"></div>
-          <div class="sensor-label" id="label-b">ZONE B</div>
-          <div class="sensor-status" id="status-b">CLEAR</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-header">
+          <h2>Live Threat Status</h2>
         </div>
+        <div class="card-body">
+          <div id="alert" class="still">
+            <span class="alert-title">System State</span>
+            Awaiting sensor data...
+          </div>
 
+          <div class="kpi-row">
+            <div class="kpi">
+              <div class="kpi-label">Total Alerts</div>
+              <div id="totalAlerts" class="kpi-value">0</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">Last Delta</div>
+              <div id="lastDelta" class="kpi-value">--</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">Last Update</div>
+              <div id="lastUpdate" class="kpi-value">--:--:--</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2>System Activity</h2>
+        </div>
+        <div class="card-body">
+          <div id="log">
+            <div class="empty-log">No alerts received yet.</div>
+          </div>
+        </div>
       </div>
     </div>
-
-    <!-- EVENT LOG -->
-    <div class="panel">
-      <div class="panel-header">EVENT LOG</div>
-      <div class="log-header">
-        <span>TIME</span>
-        <span>ZONE</span>
-        <span>DESCRIPTION</span>
-        <span>STATUS</span>
-      </div>
-      <div class="log-wrap" id="log"></div>
-    </div>
-
-  </div>
-
-  <!-- FOOTER -->
-  <div class="footer">
-    <span>SECURENET MONITORING v1.0 — CONFIDENTIAL</span>
-    <span id="session-start">SESSION STARTED: —</span>
   </div>
 
   <script>
-    // Clock
-    function updateClock() {
-      document.getElementById("clock").textContent =
-        new Date().toLocaleTimeString('en-ZA', { hour12: false });
+    const wsUrl =
+      location.protocol === "https:"
+        ? `wss://${location.host}`
+        : `ws://${location.host}`;
+
+    const ws = new WebSocket(wsUrl);
+
+    const status = document.getElementById("status");
+    const statusDot = document.getElementById("statusDot");
+    const alertBox = document.getElementById("alert");
+    const log = document.getElementById("log");
+    const totalAlertsEl = document.getElementById("totalAlerts");
+    const lastDeltaEl = document.getElementById("lastDelta");
+    const lastUpdateEl = document.getElementById("lastUpdate");
+
+    let totalAlerts = 0;
+    let audioReady = false;
+    let audioCtx = null;
+
+    function initAudio() {
+      if (audioReady) return;
+
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+
+      audioCtx = new AudioContextClass();
+
+      if (audioCtx.state === "suspended") {
+        audioCtx.resume().catch(() => {});
+      }
+
+      audioReady = true;
     }
-    setInterval(updateClock, 1000);
-    updateClock();
 
-    // Session start
-    document.getElementById("session-start").textContent =
-      "SESSION STARTED: " + new Date().toLocaleTimeString('en-ZA', { hour12: false });
+    function playAlarmCue() {
+      if (!audioReady || !audioCtx) return;
 
-    // Counters
-    let totalEvents = 0;
-    let activeAlerts = 0;
-    const activeTimers = {};
+      const now = audioCtx.currentTime;
 
-    const ws = new WebSocket(`wss://${location.host}`);
-    const wsDot = document.getElementById("ws-dot");
-    const wsLabel = document.getElementById("ws-label");
+      const masterGain = audioCtx.createGain();
+      masterGain.gain.setValueAtTime(0.0001, now);
+      masterGain.connect(audioCtx.destination);
+
+      const oscillator1 = audioCtx.createOscillator();
+      oscillator1.type = "square";
+      oscillator1.frequency.setValueAtTime(880, now);
+
+      const oscillator2 = audioCtx.createOscillator();
+      oscillator2.type = "square";
+      oscillator2.frequency.setValueAtTime(660, now);
+
+      oscillator1.connect(masterGain);
+      oscillator2.connect(masterGain);
+
+      oscillator1.start(now);
+      oscillator2.start(now + 0.12);
+
+      masterGain.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
+      masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
+
+      masterGain.gain.setValueAtTime(0.0001, now + 0.35);
+      masterGain.gain.exponentialRampToValueAtTime(0.18, now + 0.37);
+      masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.62);
+
+      oscillator1.stop(now + 0.7);
+      oscillator2.stop(now + 0.7);
+    }
+
+    function markConnected(isConnected) {
+      statusDot.classList.remove("connected", "disconnected");
+      statusDot.classList.add(isConnected ? "connected" : "disconnected");
+    }
+
+    function addLogEntry(message, isAlert = false) {
+      const empty = log.querySelector(".empty-log");
+      if (empty) empty.remove();
+
+      const entry = document.createElement("div");
+      entry.className = `entry${isAlert ? " alert-entry" : ""}`;
+
+      const time = new Date().toLocaleTimeString();
+
+      entry.innerHTML = `
+        <span class="entry-meta">${time}</span>
+        ${message}
+      `;
+
+      log.prepend(entry);
+    }
 
     ws.onopen = () => {
-      wsDot.classList.add("online");
-      wsLabel.textContent = "CONNECTED";
+      status.textContent = "Connected";
+      status.style.color = "#d9e4ee";
+      markConnected(true);
+      addLogEntry("WebSocket session established.");
     };
 
     ws.onclose = () => {
-      wsDot.classList.remove("online");
-      wsDot.classList.add("offline");
-      wsLabel.textContent = "DISCONNECTED";
+      status.textContent = "Disconnected";
+      status.style.color = "#ff9b9b";
+      markConnected(false);
+      addLogEntry("WebSocket session lost.", true);
+    };
+
+    ws.onerror = () => {
+      addLogEntry("Connection error detected.", true);
     };
 
     ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      const source = data.source;
-      const time = new Date().toLocaleTimeString('en-ZA', { hour12: false });
-      const isA = source === "Zone A";
-      const dotId = isA ? "dot-a" : "dot-b";
-      const labelId = isA ? "label-a" : "label-b";
-      const statusId = isA ? "status-a" : "status-b";
-      const alertClass = isA ? "alert-a" : "alert-b";
+      let data;
 
-      // Update counters
-      totalEvents++;
-      activeAlerts++;
-      document.getElementById("total-events").textContent = totalEvents;
-      document.getElementById("active-alerts").textContent = activeAlerts;
-      document.getElementById("last-event").textContent = `LAST EVENT: ${source} @ ${time}`;
+      try {
+        data = JSON.parse(event.data);
+      } catch (error) {
+        addLogEntry("Invalid payload received from sensor stream.", true);
+        return;
+      }
 
-      // Alert banner
-      const banner = document.getElementById("alert-banner");
-      banner.classList.add("active");
-      banner.innerHTML = `<span class="alert-tag">⚠ ALERT</span>${source} — Motion detected at ${time}`;
+      const time = new Date().toLocaleTimeString();
+      const deltaText =
+        typeof data.delta === "number" ? data.delta.toFixed(2) : "N/A";
 
-      // Dot
-      const dot = document.getElementById(dotId);
-      const label = document.getElementById(labelId);
-      const statusEl = document.getElementById(statusId);
-      dot.classList.add(alertClass);
-      label.classList.add("active");
-      statusEl.textContent = "TRIGGERED";
-      statusEl.classList.add("triggered");
+      lastDeltaEl.textContent = deltaText;
+      lastUpdateEl.textContent = time;
 
-      // Clear after 4s
-      if (activeTimers[source]) clearTimeout(activeTimers[source]);
-      activeTimers[source] = setTimeout(() => {
-        dot.classList.remove(alertClass);
-        label.classList.remove("active");
-        statusEl.textContent = "CLEAR";
-        statusEl.classList.remove("triggered");
-        activeAlerts = Math.max(0, activeAlerts - 1);
-        document.getElementById("active-alerts").textContent = activeAlerts;
-        if (activeAlerts === 0) {
-          banner.classList.remove("active");
-          banner.innerHTML = "<span>■ NO ACTIVE ALERTS — All zones clear</span>";
-        }
-      }, 4000);
+      if (data.movement) {
+        totalAlerts += 1;
+        totalAlertsEl.textContent = totalAlerts;
 
-      // Log entry
-      const log = document.getElementById("log");
-      const entry = document.createElement("div");
-      entry.className = "log-entry";
-      entry.innerHTML = `
-        <span>${time}</span>
-        <span class="log-zone ${isA ? 'a' : 'b'}">${source}</span>
-        <span>Motion detected — sensor triggered</span>
-        <span class="log-badge">ALERT</span>
-      `;
-      log.prepend(entry);
+        alertBox.className = "movement";
+        alertBox.style.display = "block";
+        alertBox.innerHTML = `
+          <span class="alert-title">Active Security Alert</span>
+          MOVEMENT DETECTED — Sensor disturbance registered.<br />
+          <strong>Delta:</strong> ${deltaText}
+        `;
+
+        playAlarmCue();
+
+        addLogEntry(
+          `ALERT: Movement detected | delta: ${deltaText}`,
+          true
+        );
+      } else {
+        alertBox.className = "still";
+        alertBox.style.display = "block";
+        alertBox.innerHTML = `
+          <span class="alert-title">System State</span>
+          No movement detected.<br />
+          <strong>Delta:</strong> ${deltaText}
+        `;
+
+        addLogEntry(
+          `Status normal | movement: false | delta: ${deltaText}`,
+          false
+        );
+      }
     };
+
+    // Browsers usually require a user gesture before audio can play.
+    // This arms the alarm on first click, tap, or keypress.
+    ["click", "touchstart", "keydown"].forEach((eventName) => {
+      window.addEventListener(
+        eventName,
+        () => {
+          initAudio();
+        },
+        { once: true }
+      );
+    });
+
+    markConnected(false);
   </script>
 </body>
 </html>
