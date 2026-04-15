@@ -5,8 +5,8 @@
 // =========================
 // WiFi
 // =========================
-const char* homeSSID     = "vA_3";
-const char* homePassword = "kerkorrel28";
+const char* homeSSID     = "ssid";
+const char* homePassword = "password";
 
 // =========================
 // Railway WebSocket
