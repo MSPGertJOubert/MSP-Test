@@ -1,0 +1,98 @@
+#include <WiFi.h>
+#include <WebSocketsClient.h>
+#include <ArduinoJson.h>
+#include <esp_now.h>
+#include <esp_wifi.h>
+
+// =========================
+// 1. CONFIGURATION
+// =========================
+const char* ssid     = "vA_3";
+const char* password = "kerkorrel28";
+const char* wsHost   = "msp-test-production-86e5.up.railway.app"; 
+const int   wsPort   = 443;
+const char* wsPath   = "/";
+
+WebSocketsClient webSocket;
+
+typedef struct {
+  char nodeName[16];
+  uint32_t counter;
+  int alert;
+  float value;
+} NodePacket;
+
+// =========================
+// 2. RELAY TO WEBSITE
+// =========================
+void relayToWebsite(NodePacket pkt, String macAddr) {
+  StaticJsonDocument<256> doc;
+  doc["source"] = pkt.nodeName;
+  doc["mac"] = macAddr;
+  doc["alert"] = pkt.alert;
+  doc["value"] = pkt.value;
+  doc["type"] = "esp_now_relay";
+
+  String json;
+  serializeJson(doc, json);
+  
+  if (webSocket.isConnected()) {
+    webSocket.sendTXT(json);
+    Serial.println(">> RELAYED: " + json);
+  } else {
+    Serial.println("!! WS_DISCONNECTED: Railway might be sleeping.");
+  }
+}
+
+// =========================
+// 3. CALLBACKS
+// =========================
+void onDataRecv(const esp_now_recv_info_t *recv_info, const uint8_t *data, int len) {
+  if (len != sizeof(NodePacket)) return;
+  NodePacket pkt;
+  memcpy(&pkt, data, sizeof(pkt));
+
+  char macStr[18];
+  snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
+           recv_info->src_addr[0], recv_info->src_addr[1], recv_info->src_addr[2],
+           recv_info->src_addr[3], recv_info->src_addr[4], recv_info->src_addr[5]);
+
+  Serial.printf("\n[ESP-NOW] From %s: Alert %d\n", pkt.nodeName, pkt.alert);
+  relayToWebsite(pkt, String(macStr));
+}
+
+void onWSevent(WStype_t type, uint8_t * payload, size_t length) {
+  if(type == WStype_CONNECTED) Serial.println("WS: Connected to Railway!");
+}
+
+// =========================
+// 4. SETUP
+// =========================
+void setup() {
+  Serial.begin(115200);
+  delay(2000);
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  
+  Serial.print("Connecting WiFi");
+  while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print("."); }
+  Serial.println("\nWiFi Connected!");
+  
+  // --- CRITICAL INFO PRINT ---
+  Serial.println("\n========================================");
+  Serial.print("GATEWAY MAC:     "); Serial.println(WiFi.macAddress());
+  Serial.print("GATEWAY CHANNEL: "); Serial.println(WiFi.channel());
+  Serial.println("========================================\n");
+
+  if (esp_now_init() != ESP_OK) return;
+  esp_now_register_recv_cb(onDataRecv);
+
+  webSocket.beginSSL(wsHost, wsPort, wsPath);
+  webSocket.onEvent(onWSevent);
+}
+
+void loop() {
+  webSocket.loop();
+  if (WiFi.status() != WL_CONNECTED) ESP.restart();
+}
