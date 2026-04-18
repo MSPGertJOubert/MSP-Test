@@ -8,7 +8,7 @@
 // =========================
 const char* homeSSID     = "ssid";
 const char* homePassword = "password";
-const char* wsHost = "msp-test-production-86e5.up.railway.app";
+const char* wsHost = "";
 const int   wsPort = 443;
 const char* wsPath = "/";
 
