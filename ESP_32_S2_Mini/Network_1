@@ -2,9 +2,9 @@
 #include <WebSocketsClient.h>
 #include <ArduinoJson.h>
 
-const char* ssid     = "MSP-Central";
-const char* password = "msp12345";
-const char* wsHost   = "192.168.4.1"; // C3 hotspot IP
+const char* ssid     = "";
+const char* password = "";
+const char* wsHost   = ""; // C3 hotspot IP
 const int   wsPort   = 81;
 const char* wsPath   = "/";
 
