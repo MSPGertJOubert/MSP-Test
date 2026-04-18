@@ -7,7 +7,7 @@
 // 1. CONFIGURATION
 // =========================
 const char *NODE_NAME = "NODE-3";
-uint8_t controllerMac[] = {0x80, 0xF1, 0xB2, 0x50, 0x3A, 0xD4};
+uint8_t controllerMac[] = {};
 int gatewayChannel = 1; 
 
 const int BUTTON_PIN = 9;
