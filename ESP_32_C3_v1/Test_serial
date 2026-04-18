@@ -7,9 +7,9 @@
 // =========================
 // 1. CONFIGURATION
 // =========================
-const char* ssid     = "vA_3";
-const char* password = "kerkorrel28";
-const char* wsHost   = "msp-test-production-86e5.up.railway.app"; 
+const char* ssid     = "";
+const char* password = "";
+const char* wsHost   = ""; 
 const int   wsPort   = 443;
 const char* wsPath   = "/";
 
