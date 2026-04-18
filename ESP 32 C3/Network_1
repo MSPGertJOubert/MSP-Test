@@ -8,11 +8,11 @@ const char* homeSSID     = "YOUR_WIFI_SSID";
 const char* homePassword = "YOUR_WIFI_PASSWORD";
 
 // Hotspot credentials (S2 will connect to this)
-const char* apSSID     = "MSP-Central";
-const char* apPassword = "msp12345";
+const char* apSSID     = "";
+const char* apPassword = "";
 
 // Railway
-const char* wsHost = "msp-test-production-86e5.up.railway.app";
+const char* wsHost = "";
 const int   wsPort = 443;
 const char* wsPath = "/";
 
