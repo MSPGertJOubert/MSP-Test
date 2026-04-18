@@ -12,13 +12,13 @@ const char* homePassword = "myPass";
 // =========================
 // CONTROLLER HOTSPOT
 // =========================
-const char* apSSID       = "MSP-Central";
-const char* apPassword   = "msp12345";
+const char* apSSID       = "";
+const char* apPassword   = "";
 
 // =========================
 // RAILWAY WEBSOCKET
 // =========================
-const char* wsHost = "msp-test-production-86e5.up.railway.app";
+const char* wsHost = "";
 const int   wsPort = 443;
 const char* wsPath = "/";
 
